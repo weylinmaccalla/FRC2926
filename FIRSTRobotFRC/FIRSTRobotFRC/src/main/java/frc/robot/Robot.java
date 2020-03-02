@@ -7,48 +7,57 @@
 
 package frc.robot;
 
-import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
+import edu.wpi.first.wpilibj.TimedRobot;
+
 import com.kauailabs.navx.frc.AHRS;
 
+import edu.wpi.cscore.UsbCamera;
 import edu.wpi.first.cameraserver.CameraServer;
+import org.opencv.core.Rect;
+import org.opencv.imgproc.Imgproc;
+
 import edu.wpi.first.wpilibj.SPI;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.I2C;
+
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+
+import com.ctre.phoenix.motorcontrol.Faults;
+import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import edu.wpi.first.wpilibj.PowerDistributionPanel;
 import edu.wpi.first.wpilibj.SpeedControllerGroup;
-import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 
 import edu.wpi.first.wpilibj.util.Color;
+import vision2926.Vision;
+
 import com.revrobotics.ColorSensorV3;
 import com.revrobotics.ColorMatch;
 import com.revrobotics.ColorMatchResult;
+import edu.wpi.first.wpilibj.vision.VisionThread;
 
-/**
- * This is a demo program providing a real-time display of navX MXP values.
- *
- * In the operatorControl() method, all data from the navX sensor is retrieved
- * and output to the SmartDashboard.
- *
- * The output data values include:
- *
- * - Yaw, Pitch and Roll angles - Compass Heading and 9-Axis Fused Heading
- * (requires Magnetometer calibration) - Linear Acceleration Data - Motion
- * Indicators - Estimated Velocity and Displacement - Quaternion Data - Raw
- * Gyro, Accelerometer and Magnetometer Data
- *
- * As well, Board Information is also retrieved; this can be useful for
- * debugging connectivity issues after initial installation of the navX MXP
- * sensor.
- *
- */
 public class Robot extends TimedRobot {
+  Faults _rightfaults = new Faults();
+  Faults _leftfaults = new Faults();
+
+  AHRS ahrs;
+
+  private static final int IMG_WIDTH = 320;
+  private static final int IMG_HEIGHT = 240;
+
+  private VisionThread visionThread;
+  private double centerX = 0.0;
+  private double area = 0.0;
+
+
+  private final Object imgLock = new Object();
 
   private final I2C.Port i2cPort = I2C.Port.kOnboard;
+
   private final ColorSensorV3 m_colorSensor = new ColorSensorV3(i2cPort);
   private final ColorMatch m_colorMatcher = new ColorMatch();
   private final Color kBlueTarget = ColorMatch.makeColor(0.143, 0.427, 0.429);
@@ -57,9 +66,10 @@ public class Robot extends TimedRobot {
   private final Color kYellowTarget = ColorMatch.makeColor(0.361, 0.524, 0.113);
 
   PowerDistributionPanel pdp = new PowerDistributionPanel(5);
+
   Compressor c;
   DoubleSolenoid Piston;
-  AHRS ahrs;
+
   private final WPI_TalonSRX LeftMotor1 = new WPI_TalonSRX(1);
   private final WPI_TalonSRX LeftMotor2 = new WPI_TalonSRX(2);
   
@@ -73,33 +83,41 @@ public class Robot extends TimedRobot {
 
   DifferentialDrive drivetrain = new DifferentialDrive(leftmotors, rightmotors);
 
-  boolean quickturn = false;
-
-  
-  double leftSlow = 0.24;
-  double rightSlow = -0.24;
-  double rotateSpeed = 0.35;
-  double rotateSpeedSlow = 0.25;
-
-  final static double kCollisionThreshold_DeltaG = 0.5f;
   double last_world_linear_accel_x;
   double last_world_linear_accel_y;
   CameraServer server;
-  
 
+  
   /**
    * This function is run when the robot is first started up and should be used
    * for any initialization code.
    */
   @Override
   public void robotInit() {
+   
+    UsbCamera camera = CameraServer.getInstance().startAutomaticCapture();
+    camera.setResolution(IMG_WIDTH, IMG_HEIGHT);
+
+    visionThread = new VisionThread(camera, new Vision(), pipeline -> {
+      if (!pipeline.filterContoursOutput().isEmpty()) {
+        Rect r = Imgproc.boundingRect(pipeline.filterContoursOutput().get(0));
+        synchronized (imgLock) {
+          area = r.width*r.height;
+          centerX = r.x + (r.width / 2);
+
+        }
+      }
+    });
+
+    visionThread.start();
+
     m_colorMatcher.addColorMatch(kBlueTarget);
     m_colorMatcher.addColorMatch(kGreenTarget);
     m_colorMatcher.addColorMatch(kRedTarget);
-    m_colorMatcher.addColorMatch(kYellowTarget);    
+    m_colorMatcher.addColorMatch(kYellowTarget);
     CameraServer.getInstance().startAutomaticCapture();
-    
-    Piston = new DoubleSolenoid(0,1);
+
+    Piston = new DoubleSolenoid(0, 1);
     c = new Compressor(0);
     c.setClosedLoopControl(true);
     try {
@@ -108,7 +126,7 @@ public class Robot extends TimedRobot {
     } catch (RuntimeException ex) {
       DriverStation.reportError("Error instantiating navX MXP:  " + ex.getMessage(), true);
     }
-    
+
   }
 
   /**
@@ -144,7 +162,6 @@ public class Robot extends TimedRobot {
     SmartDashboard.putString("Detected Color", colorString);
   }
 
-  
   /**
    * This autonomous (along with the chooser code above) shows how to select
    * between different autonomous modes using the dashboard. The sendable chooser
@@ -169,9 +186,6 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("Left Motor 1 Amps", pdp.getCurrent(14));
     SmartDashboard.putNumber("Left Motor 2 Amps", pdp.getCurrent(15));
 
-    
-
-
   }
 
   /**
@@ -184,54 +198,52 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("IMU_CompassHeading", ahrs.getCompassHeading());
     SmartDashboard.putBoolean("Low Pressure", c.getPressureSwitchValue());
     SmartDashboard.putNumber("Total Power Consumption", pdp.getTotalCurrent());
+    double centerX;
 
-    if (Math.abs(ahrs.getCompassHeading()) <= 3) {
-      leftmotors.set(leftSlow - (ahrs.getCompassHeading()) / 15);
-      rightmotors.set(rightSlow - (ahrs.getCompassHeading()) / 15);
-    } else if (Math.abs(ahrs.getCompassHeading()) < 10) {
-      if (ahrs.getCompassHeading() > 0) {
-        leftmotors.set(leftSlow);
-        rightmotors.set(1.1 * rightSlow);
-      } else if (ahrs.getCompassHeading() < 0) {
-        leftmotors.set(1.1 * leftSlow);
-        rightmotors.set(rightSlow);
-      }
-    } else if (ahrs.getCompassHeading() > 0) {
-      while (ahrs.getCompassHeading() > 10 && isAutonomous()) {
-        leftmotors.set(-rotateSpeed);
-        rightmotors.set(-rotateSpeed);
-      }
-      while (ahrs.getCompassHeading() > 0 && isAutonomous()) {
-        leftmotors.set(-rotateSpeedSlow);
-        rightmotors.set(-rotateSpeedSlow);
-      }
-      while (ahrs.getCompassHeading() < 0 && isAutonomous()) {
-        leftmotors.set(rotateSpeedSlow);
-        rightmotors.set(rotateSpeedSlow);
-      }
-    } else {
-      while (ahrs.getCompassHeading() < -10 && isAutonomous()) {
-        leftmotors.set(rotateSpeed);
-        rightmotors.set(rotateSpeed);
-      }
-      while (ahrs.getCompassHeading() < 0 && isAutonomous()) {
-        leftmotors.set(rotateSpeedSlow);
-        rightmotors.set(rotateSpeedSlow);
-      }
-      while (ahrs.getCompassHeading() > 0 && isAutonomous()) {
-        leftmotors.set(-rotateSpeedSlow);
-        rightmotors.set(-rotateSpeedSlow);
-      }
+    synchronized (imgLock) {
+      centerX = this.centerX;
     }
+    double turn = centerX - (IMG_WIDTH / 2);
+    drivetrain.curvatureDrive(0.25, turn * 0.003, true);
+
   }
 
-  /**
-   * This function is called periodically during operator control.
-   */
   @Override
   public void teleopPeriodic() {
-   
-    /* Display 6-axis Processed Angle Data */
+    SmartDashboard.putNumber("area", area);
+
+    if (joy1.getRawButton(1) && area > 1000)
+    {
+     
+      double centerX;
+
+      synchronized (imgLock) {
+        centerX = this.centerX;
+      }
+      double turn = centerX - (IMG_WIDTH / 2);
+      drivetrain.curvatureDrive(0.25, turn * 0.003, true);
+    }
+     if(joy1.getRawButton(3))
+     {
+      Piston.set(DoubleSolenoid.Value.kForward);
+     }
+     else
+     {
+       Piston.set(DoubleSolenoid.Value.kReverse);
+     }
+
+    RightMotor2.setSensorPhase(true);
+    LeftMotor2.setSensorPhase(true);
+    RightMotor2.getFaults(_rightfaults);
+    LeftMotor2.getFaults(_leftfaults);
+    SmartDashboard.putNumber("Right Sensor Vel:", RightMotor2.getSelectedSensorVelocity());
+    SmartDashboard.putNumber("Left Sensor Vel:", LeftMotor2.getSelectedSensorVelocity());
+    SmartDashboard.putNumber("Right Sensor Pos:", RightMotor2.getSelectedSensorPosition());
+    SmartDashboard.putNumber("LeftSensor Pos:", LeftMotor2.getSelectedSensorPosition());
+    SmartDashboard.putNumber("Right Out %", RightMotor2.getMotorOutputPercent());
+    SmartDashboard.putNumber("Left Out %", LeftMotor2.getMotorOutputPercent());
+    SmartDashboard.putBoolean("Left Out Of Phase:", _leftfaults.SensorOutOfPhase);
+    SmartDashboard.putBoolean("Right Out Of Phase:", _rightfaults.SensorOutOfPhase);
     SmartDashboard.putBoolean("NavX Connected?", ahrs.isConnected());
     SmartDashboard.putBoolean("NavX Calibrating?", ahrs.isCalibrating());
     SmartDashboard.putNumber("Compass Heading", ahrs.getCompassHeading());
@@ -245,59 +257,28 @@ public class Robot extends TimedRobot {
     double reverse = joy1.getRawAxis(2);
     double forward = joy1.getRawAxis(3);
     double turn = joy1.getRawAxis(0);
-    double speed = forward - reverse;
+    double speed = ((forward - reverse) * (forward - reverse));
+    if (reverse > 0) {
+      speed = speed * -1;
+      turn = turn * -1;
+    }
 
-    if (joy1.getRawButton(2) == true)
-    {
-      Piston.set(DoubleSolenoid.Value.kForward);
+    if (joy1.getRawButton(5)) {
+      drivetrain.curvatureDrive(speed, -1, true);
     }
-    else
-    {
-      Piston.set(DoubleSolenoid.Value.kReverse);
+
+    if (joy1.getRawButton(6)) {
+      drivetrain.curvatureDrive(speed, 1, true);
     }
-    if (joy1.getRawButton(5) == true)
-    {
-      drivetrain.curvatureDrive(.25, -1, true);
-    }
-    else;
-    {
+
+    if ((joy1.getRawButton(5) == false) && (joy1.getRawButton(6) == false)) {
       drivetrain.curvatureDrive(speed, turn, false);
     }
-    if (joy1.getRawButton(6) == true)
-    {
-      drivetrain.curvatureDrive(.5, 1, true);
-    }
-    else
-    {
-      drivetrain.curvatureDrive(speed, turn, false);
-    }
-    //drivetrain.curvatureDrive(speed, turn, false);
+
     drivetrain.setSafetyEnabled(false);
 
-    
-           boolean collisionDetected = false;
-          
-          double curr_world_linear_accel_x = ahrs.getWorldLinearAccelX();
-          double currentJerkX = curr_world_linear_accel_x - last_world_linear_accel_x;
-          last_world_linear_accel_x = curr_world_linear_accel_x;
-          SmartDashboard.putNumber("X Axis Jerk", currentJerkX);
-          double curr_world_linear_accel_y = ahrs.getWorldLinearAccelY();
-          double currentJerkY = curr_world_linear_accel_y - last_world_linear_accel_y;
-          last_world_linear_accel_y = curr_world_linear_accel_y;
-          SmartDashboard.putNumber("Y Axis Jerk", currentJerkY);
-          
-          if ( ( Math.abs(currentJerkX) > kCollisionThreshold_DeltaG ) ||
-               ( Math.abs(currentJerkY) > kCollisionThreshold_DeltaG) ) {
-              collisionDetected = true;
-          }
-          SmartDashboard.putBoolean(  "CollisionDetected", collisionDetected);
-
-        
   }
-
-  /**
-   * This function is called periodically during test mode.
-   */
+ 
   @Override
   public void testPeriodic() {
   }
