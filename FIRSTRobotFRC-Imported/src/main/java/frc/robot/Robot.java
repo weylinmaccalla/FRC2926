@@ -6,47 +6,24 @@
 /*----------------------------------------------------------------------------*/
 
 package frc.robot;
-
 import edu.wpi.first.wpilibj.TimedRobot;
-
 import com.kauailabs.navx.frc.AHRS;
-
-import edu.wpi.cscore.UsbCamera;
-import edu.wpi.first.cameraserver.CameraServer;
-import org.opencv.core.Rect;
-import org.opencv.imgproc.Imgproc;
-
 import edu.wpi.first.wpilibj.SPI;
-import edu.wpi.first.wpilibj.I2C;
-
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Joystick;
-import edu.wpi.first.wpilibj.PWM;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-
 import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.Faults;
 import com.ctre.phoenix.motorcontrol.LimitSwitchNormal;
 import com.ctre.phoenix.motorcontrol.RemoteLimitSwitchSource;
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import com.ctre.phoenix.motorcontrol.can.WPI_VictorSPX;
-
 import edu.wpi.first.wpilibj.PowerDistributionPanel;
 import edu.wpi.first.wpilibj.SpeedControllerGroup;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
-import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
-import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.Compressor;
-import edu.wpi.first.wpilibj.DigitalOutput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 
-import edu.wpi.first.wpilibj.util.Color;
-import vision2926.Vision;
-
-import com.revrobotics.ColorSensorV3;
-import com.revrobotics.ColorMatch;
-import com.revrobotics.ColorMatchResult;
-import edu.wpi.first.wpilibj.vision.VisionThread;
 
 public class Robot extends TimedRobot {
   Faults _rightfaults = new Faults();
@@ -54,29 +31,9 @@ public class Robot extends TimedRobot {
 
   AHRS ahrs;
 
-  private static final int IMG_WIDTH = 320;
-  private static final int IMG_HEIGHT = 240;
-
-  private VisionThread visionThread;
-  private double centerX = 0.0;
-
-
-  private final Object imgLock = new Object();
-
-  private final I2C.Port i2cPort = I2C.Port.kOnboard;
-
-  private final ColorSensorV3 m_colorSensor = new ColorSensorV3(i2cPort);
-  private final ColorMatch m_colorMatcher = new ColorMatch();
-  private final Color kBlueTarget = ColorMatch.makeColor(0.143, 0.427, 0.429);
-  private final Color kGreenTarget = ColorMatch.makeColor(0.197, 0.561, 0.240);
-  private final Color kRedTarget = ColorMatch.makeColor(0.561, 0.232, 0.114);
-  private final Color kYellowTarget = ColorMatch.makeColor(0.361, 0.524, 0.113);
-
   PowerDistributionPanel pdp = new PowerDistributionPanel(5);
 
   Compressor c;
-  DoubleSolenoid BallHopperEntry;
-  DoubleSolenoid BallHopperExit;
   DoubleSolenoid DeploySpinner;
 
   private final WPI_TalonSRX LeftMotor1 = new WPI_TalonSRX(1);
@@ -90,7 +47,7 @@ public class Robot extends TimedRobot {
   
   private final WPI_VictorSPX LiftMotor1 = new WPI_VictorSPX(6);
   private final WPI_VictorSPX LiftMotor2 = new WPI_VictorSPX(7);
-  private final WPI_VictorSPX HopperMotor = new WPI_VictorSPX(8);
+  private final WPI_VictorSPX BallMotor = new WPI_VictorSPX(8);
   private final WPI_VictorSPX PanelSpinner = new WPI_VictorSPX(9);
 
 
@@ -98,11 +55,6 @@ public class Robot extends TimedRobot {
 
 
   DifferentialDrive drivetrain = new DifferentialDrive(leftmotors, rightmotors);
-
-  double last_world_linear_accel_x;
-  double last_world_linear_accel_y;
-  CameraServer server;
-
   
   /**
    * This function is run when the robot is first started up and should be used
@@ -115,28 +67,6 @@ public class Robot extends TimedRobot {
     LiftMotor2.setInverted(true);
     LiftMotor1.configReverseLimitSwitchSource(RemoteLimitSwitchSource.RemoteTalonSRX, LimitSwitchNormal.NormallyOpen, 1);
     LiftMotor2.configReverseLimitSwitchSource(RemoteLimitSwitchSource.RemoteTalonSRX, LimitSwitchNormal.NormallyOpen, 1);
-    UsbCamera camera = CameraServer.getInstance().startAutomaticCapture();
-    camera.setResolution(IMG_WIDTH, IMG_HEIGHT);
-
-    visionThread = new VisionThread(camera, new Vision(), pipeline -> {
-      if (!pipeline.filterContoursOutput().isEmpty()) {
-        Rect r = Imgproc.boundingRect(pipeline.filterContoursOutput().get(0));
-        synchronized (imgLock) {
-          centerX = r.x + (r.width / 2);
-
-        }
-      }
-    });
-
-    visionThread.start();
-
-    m_colorMatcher.addColorMatch(kBlueTarget);
-    m_colorMatcher.addColorMatch(kGreenTarget);
-    m_colorMatcher.addColorMatch(kRedTarget);
-    m_colorMatcher.addColorMatch(kYellowTarget);
-    CameraServer.getInstance().startAutomaticCapture();
-    BallHopperEntry = new DoubleSolenoid(0, 1);
-    BallHopperExit = new DoubleSolenoid(2,3);
     DeploySpinner = new DoubleSolenoid(4,5);
     c = new Compressor(0);
     c.setClosedLoopControl(true);
@@ -146,8 +76,9 @@ public class Robot extends TimedRobot {
     } catch (RuntimeException ex) {
       DriverStation.reportError("Error instantiating navX MXP:  " + ex.getMessage(), true);
     }
-
   }
+
+  
 
   /**
    * This function is called every robot packet, no matter the mode. Use this for
@@ -158,28 +89,10 @@ public class Robot extends TimedRobot {
    * This runs after the mode specific periodic functions, but before LiveWindow
    * and SmartDashboard integrated updating.
    */
+
   @Override
   public void robotPeriodic() {
-    Color detectedColor = m_colorSensor.getColor();
-    String colorString;
-    ColorMatchResult match = m_colorMatcher.matchClosestColor(detectedColor);
-
-    if (match.color == kBlueTarget) {
-      colorString = "Blue";
-    } else if (match.color == kRedTarget) {
-      colorString = "Red";
-    } else if (match.color == kGreenTarget) {
-      colorString = "Green";
-    } else if (match.color == kYellowTarget) {
-      colorString = "Yellow";
-    } else {
-      colorString = "Unknown";
-    }
-    SmartDashboard.putNumber("Red", detectedColor.red);
-    SmartDashboard.putNumber("Green", detectedColor.green);
-    SmartDashboard.putNumber("Blue", detectedColor.blue);
-    SmartDashboard.putNumber("Confidence", match.confidence);
-    SmartDashboard.putString("Detected Color", colorString);
+  
   }
 
   /**
@@ -213,19 +126,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousPeriodic() {
-    SmartDashboard.putBoolean("IMU_Connected", ahrs.isConnected());
-    SmartDashboard.putBoolean("IMU_IsCalibrating", ahrs.isCalibrating());
-    SmartDashboard.putNumber("IMU_CompassHeading", ahrs.getCompassHeading());
-    SmartDashboard.putBoolean("Low Pressure", c.getPressureSwitchValue());
-    SmartDashboard.putNumber("Total Power Consumption", pdp.getTotalCurrent());
-    double centerX;
-
-    synchronized (imgLock) {
-      centerX = this.centerX;
-    }
-    double turn = centerX - (IMG_WIDTH / 2);
-    drivetrain.curvatureDrive(0.25, turn * 0.003, true);
-
+   
   }
 
   @Override
@@ -242,30 +143,14 @@ public class Robot extends TimedRobot {
       PanelSpinner.set(ControlMode.PercentOutput, 0);
      }
 
-     if(joy1.getRawButton(2))
+    
+     if (joy1.getRawButton(1))
      {
-      BallHopperEntry.set(DoubleSolenoid.Value.kReverse);
+       BallMotor.set(ControlMode.PercentOutput, 1);
      }
      else
      {
-      BallHopperEntry.set(DoubleSolenoid.Value.kForward);
-     }
-
-     if(joy1.getRawButton(1))
-     {
-      BallHopperExit.set(DoubleSolenoid.Value.kReverse);
-     }
-     else
-     {
-      BallHopperExit.set(DoubleSolenoid.Value.kForward);
-     }
-     if (joy1.getRawButton(1) || joy1.getRawButton(2))
-     {
-       HopperMotor.set(ControlMode.PercentOutput, .25);
-     }
-     else
-     {
-       HopperMotor.set(ControlMode.PercentOutput, 0);
+       BallMotor.set(ControlMode.PercentOutput, 0);
      }
 
     if (Math.abs(joy1.getRawAxis(4)) > .1)
@@ -284,21 +169,6 @@ public class Robot extends TimedRobot {
     LeftMotor2.getFaults(_leftfaults);
     SmartDashboard.putNumber("Right Sensor Vel:", RightMotor2.getSelectedSensorVelocity());
     SmartDashboard.putNumber("Left Sensor Vel:", LeftMotor2.getSelectedSensorVelocity());
-    SmartDashboard.putNumber("Right Sensor Pos:", RightMotor2.getSelectedSensorPosition());
-    SmartDashboard.putNumber("LeftSensor Pos:", LeftMotor2.getSelectedSensorPosition());
-    SmartDashboard.putNumber("Right Out %", RightMotor2.getMotorOutputPercent());
-    SmartDashboard.putNumber("Left Out %", LeftMotor2.getMotorOutputPercent());
-    SmartDashboard.putBoolean("Left Out Of Phase:", _leftfaults.SensorOutOfPhase);
-    SmartDashboard.putBoolean("Right Out Of Phase:", _rightfaults.SensorOutOfPhase);
-    SmartDashboard.putBoolean("NavX Connected?", ahrs.isConnected());
-    SmartDashboard.putBoolean("NavX Calibrating?", ahrs.isCalibrating());
-    SmartDashboard.putNumber("Compass Heading", ahrs.getCompassHeading());
-    SmartDashboard.putBoolean("Under Max Pressure", c.getPressureSwitchValue());
-    SmartDashboard.putNumber("Total Power Consumption", pdp.getTotalCurrent());
-    SmartDashboard.putNumber("Right Motor 1 Amps", pdp.getCurrent(1));
-    SmartDashboard.putNumber("Right Motor 2 Amps", pdp.getCurrent(2));
-    SmartDashboard.putNumber("Left Motor 1 Amps", pdp.getCurrent(14));
-    SmartDashboard.putNumber("Left Motor 2 Amps", pdp.getCurrent(15));
 
     double reverse = joy1.getRawAxis(2);
     double forward = joy1.getRawAxis(3);
@@ -321,7 +191,7 @@ public class Robot extends TimedRobot {
       drivetrain.curvatureDrive(speed, turn, false);
     }
 
-    drivetrain.setSafetyEnabled(false);
+    drivetrain.setSafetyEnabled(true);
 
   }
  

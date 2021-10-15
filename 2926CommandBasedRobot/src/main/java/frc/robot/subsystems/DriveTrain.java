@@ -14,11 +14,11 @@ import frc.robot.Constants;
 
 public class DriveTrain extends SubsystemBase {
  
-   public WPI_TalonSRX LeftSlave = new WPI_TalonSRX(Constants.LeftMotor1);
-   public WPI_TalonSRX LeftMaster = new WPI_TalonSRX(Constants.LeftMotor2);
+   private final WPI_TalonSRX LeftSlave = new WPI_TalonSRX(Constants.LeftMotor1);
+   private final WPI_TalonSRX LeftMaster = new WPI_TalonSRX(Constants.LeftMotor2);
   
-   public WPI_TalonSRX RightSlave = new WPI_TalonSRX(Constants.RightMotor1);
-   public WPI_TalonSRX RightMaster = new WPI_TalonSRX(Constants.RightMotor2);
+   private final WPI_TalonSRX RightSlave = new WPI_TalonSRX(Constants.RightMotor1);
+   private final WPI_TalonSRX RightMaster = new WPI_TalonSRX(Constants.RightMotor2);
 
   @Override
   public void periodic() {

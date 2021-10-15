@@ -7,21 +7,34 @@
 
 package frc.robot.subsystems;
 
-import com.ctre.phoenix.motorcontrol.can.VictorSPX;
+import com.ctre.phoenix.motorcontrol.can.WPI_VictorSPX;
 
+import edu.wpi.first.wpilibj.DoubleSolenoid;
+import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 
 public class BallHopper extends SubsystemBase {
-
-  public VictorSPX HopperMotor = new VictorSPX(Constants.HopperMotor);
+  private final DoubleSolenoid EntranceHatch = new DoubleSolenoid(Constants.EntranceForwardSol, Constants.EntranceReverseSol);
+  private final DoubleSolenoid ExitHatch = new DoubleSolenoid(Constants.ExitForwardSol, Constants.ExitReverseSol);
+  private final WPI_VictorSPX HopperMotor = new WPI_VictorSPX(Constants.HopperMotor);
   
-  public BallHopper() {
-   
+  public BallHopper() { 
+    HopperMotor.setInverted(false); 
   }
+ public void Neutral(){
+   HopperMotor.set(0);
+   EntranceHatch.set(Value.kReverse);
+   ExitHatch.set(Value.kForward);
+ }
+ public void CollectCells(){
+   HopperMotor.set(.25);
+   EntranceHatch.set(Value.kReverse);
+ }
 
-  @Override
-  public void periodic() {
-    // This method will be called once per scheduler run
-  }
+ public void DropCells(){
+   HopperMotor.set(.25);
+   ExitHatch.set(Value.kReverse);
+ }
 }
+

@@ -7,6 +7,7 @@
 
 package frc.robot.subsystems;
 
+import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -15,12 +16,12 @@ import frc.robot.Constants;
 public class ScissorLift extends SubsystemBase {
   
   WPI_TalonSRX LiftMotor = new WPI_TalonSRX(Constants.LiftMotor);
+
   public ScissorLift() {
-
+  LiftMotor.setInverted(true);
   }
-
-  @Override
-  public void periodic() {
-    // This method will be called once per scheduler run
-  }
+public void LifterMotor(double LifterValue){
+  LiftMotor.set(ControlMode.PercentOutput, LifterValue);
 }
+}
+

@@ -11,7 +11,10 @@ import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.command.Subsystem;
 import frc.robot.commands.CurvatureDrive;
+import frc.robot.subsystems.BallHopper;
+import frc.robot.subsystems.BooferSpoofer;
 import frc.robot.subsystems.DriveTrain;
+import frc.robot.subsystems.ScissorLift;
 import edu.wpi.first.wpilibj2.command.Command;
 
 /**
@@ -22,17 +25,13 @@ import edu.wpi.first.wpilibj2.command.Command;
  */
 public class RobotContainer {
   // The robot's subsystems and commands are defined here...
-  private final Subsystem DriveTrain = new Subsystem(){ 
-    @Override
-    protected void initDefaultCommand() {
-            
-    }
-  };
-
-  private final Command 
-
-
-
+  private final DriveTrain m_DriveTrain = new DriveTrain();
+  private final BooferSpoofer m_ControlPanel = new BooferSpoofer();
+  private final BallHopper m_Hopper = new BallHopper();
+  private final ScissorLift m_Lift = new ScissorLift();
+  
+  
+  
   /**
    * The container for the robot.  Contains subsystems, OI devices, and commands.
    */
@@ -58,6 +57,6 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     // An ExampleCommand will run in autonomous
-    return m_CurvatureDrive;
+    return m_chooser.getAutonomousCommand;
   }
 }

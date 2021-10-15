@@ -16,12 +16,29 @@ package frc.robot;
  * constants are needed, to reduce verbosity.
  */
 public final class Constants {
+    // The following are variables present within the Robot's Pneumatics System
+    public static final int PCM = 0;
+
+    public static final int SpooferForwardSol = 0;
+    public static final int SpooferReverseSol = 1;
+    
+	public static final int EntranceReverseSol = 0;
+	public static final int EntranceForwardSol = 0;
+	public static final int ExitReverseSol = 0;
+	public static final int ExitForwardSol = 0;
+
     // The following are the CAN (Controller Area Network) ID's for the Robot Motors
+    
     public static final int LeftMotor1 = 1;
     public static final int LeftMotor2 = 2;
+
     public static final int RightMotor1 = 3;
     public static final int RightMotor2 = 4;
+
     public static final int LiftMotor = 5;
-	public static final int HopperMotor = 6;
-	public static final int SpooferMotor = 7;
+
+    public static final int HopperMotor = 6;
+
+    public static final int SpooferMotor = 7;
+
 }
