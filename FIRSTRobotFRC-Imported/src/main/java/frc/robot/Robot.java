@@ -6,6 +6,7 @@
 /*----------------------------------------------------------------------------*/
 
 package frc.robot;
+
 import edu.wpi.first.wpilibj.TimedRobot;
 import com.kauailabs.navx.frc.AHRS;
 import edu.wpi.first.wpilibj.SPI;
@@ -19,11 +20,12 @@ import com.ctre.phoenix.motorcontrol.RemoteLimitSwitchSource;
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import com.ctre.phoenix.motorcontrol.can.WPI_VictorSPX;
 import edu.wpi.first.wpilibj.PowerDistributionPanel;
+import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.SpeedControllerGroup;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
-
+import edu.wpi.first.wpilibj.AnalogInput;
 
 public class Robot extends TimedRobot {
   Faults _rightfaults = new Faults();
@@ -38,36 +40,42 @@ public class Robot extends TimedRobot {
 
   private final WPI_TalonSRX LeftMotor1 = new WPI_TalonSRX(1);
   private final WPI_TalonSRX LeftMotor2 = new WPI_TalonSRX(2);
-  
+
   SpeedControllerGroup leftmotors = new SpeedControllerGroup(LeftMotor1, LeftMotor2);
 
   private final WPI_TalonSRX RightMotor1 = new WPI_TalonSRX(3);
   private final WPI_TalonSRX RightMotor2 = new WPI_TalonSRX(4);
   SpeedControllerGroup rightmotors = new SpeedControllerGroup(RightMotor1, RightMotor2);
-  
+
   private final WPI_VictorSPX LiftMotor1 = new WPI_VictorSPX(6);
   private final WPI_VictorSPX LiftMotor2 = new WPI_VictorSPX(7);
   private final WPI_VictorSPX BallMotor = new WPI_VictorSPX(8);
   private final WPI_VictorSPX PanelSpinner = new WPI_VictorSPX(9);
 
+  public AnalogInput ultrasonicSensorOne = new AnalogInput(0);
+  public double ultrasonicSensorOneRange = 0;
+  public double voltageScaleFactor = 1;
+  public int AutoCounter = 0;
 
   private final Joystick joy1 = new Joystick(0);
 
-
   DifferentialDrive drivetrain = new DifferentialDrive(leftmotors, rightmotors);
-  
+
   /**
    * This function is run when the robot is first started up and should be used
    * for any initialization code.
    */
   @Override
   public void robotInit() {
+    SmartDashboard.putNumber("Sensor Max Range (inches)", 196);
 
     LiftMotor1.setInverted(true);
     LiftMotor2.setInverted(true);
-    LiftMotor1.configReverseLimitSwitchSource(RemoteLimitSwitchSource.RemoteTalonSRX, LimitSwitchNormal.NormallyOpen, 1);
-    LiftMotor2.configReverseLimitSwitchSource(RemoteLimitSwitchSource.RemoteTalonSRX, LimitSwitchNormal.NormallyOpen, 1);
-    DeploySpinner = new DoubleSolenoid(4,5);
+    LiftMotor1.configReverseLimitSwitchSource(RemoteLimitSwitchSource.RemoteTalonSRX, LimitSwitchNormal.NormallyOpen,
+        1);
+    LiftMotor2.configReverseLimitSwitchSource(RemoteLimitSwitchSource.RemoteTalonSRX, LimitSwitchNormal.NormallyOpen,
+        1);
+    DeploySpinner = new DoubleSolenoid(4, 5);
     c = new Compressor(0);
     c.setClosedLoopControl(true);
     try {
@@ -77,8 +85,6 @@ public class Robot extends TimedRobot {
       DriverStation.reportError("Error instantiating navX MXP:  " + ex.getMessage(), true);
     }
   }
-
-  
 
   /**
    * This function is called every robot packet, no matter the mode. Use this for
@@ -92,7 +98,10 @@ public class Robot extends TimedRobot {
 
   @Override
   public void robotPeriodic() {
-  
+    SmartDashboard.putNumber("Sensor 1 Range (Inches)", ultrasonicSensorOneRange);
+    voltageScaleFactor = 5 / RobotController.getVoltage5V();
+    ultrasonicSensorOneRange = (ultrasonicSensorOne.getValue() * voltageScaleFactor * 0.0492);
+
   }
 
   /**
@@ -109,15 +118,14 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    SmartDashboard.putBoolean("NavX Connected?", ahrs.isConnected());
-    SmartDashboard.putBoolean("NavX Calibrating?", ahrs.isCalibrating());
-    SmartDashboard.putNumber("Compass Heading", ahrs.getCompassHeading());
+
     SmartDashboard.putBoolean("Under Max Pressure", c.getPressureSwitchValue());
     SmartDashboard.putNumber("Total Power Consumption", pdp.getTotalCurrent());
     SmartDashboard.putNumber("Right Motor 1 Amps", pdp.getCurrent(1));
     SmartDashboard.putNumber("Right Motor 2 Amps", pdp.getCurrent(2));
     SmartDashboard.putNumber("Left Motor 1 Amps", pdp.getCurrent(14));
     SmartDashboard.putNumber("Left Motor 2 Amps", pdp.getCurrent(15));
+    AutoCounter = 0;
 
   }
 
@@ -126,40 +134,48 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousPeriodic() {
-   
+
+    if (ultrasonicSensorOneRange >= 14) {
+      drivetrain.curvatureDrive(-.15, 0, false);
+    } else {
+      AutoCounter += 1;
+      drivetrain.curvatureDrive(0, 0, false);
+      if (AutoCounter < 250) {
+        BallMotor.set(ControlMode.PercentOutput, 1);
+      }
+    }
   }
 
   @Override
   public void teleopPeriodic() {
-    
-    if(joy1.getRawButton(3))
-     {
+    if (joy1.getRawButton(3)) {
       DeploySpinner.set(DoubleSolenoid.Value.kForward);
-      PanelSpinner.set(ControlMode.PercentOutput, 1);
-     }
-     else
-     {
+    } else {
       DeploySpinner.set(DoubleSolenoid.Value.kReverse);
+    }
+
+    if (joy1.getPOV() == 90) {
+      PanelSpinner.set(ControlMode.PercentOutput, -1);
+    }
+
+    if (joy1.getPOV() == 270) {
+      PanelSpinner.set(ControlMode.PercentOutput, 1);
+    }
+
+    if (joy1.getPOV() == -1) {
       PanelSpinner.set(ControlMode.PercentOutput, 0);
-     }
+    }
 
-    
-     if (joy1.getRawButton(1))
-     {
-       BallMotor.set(ControlMode.PercentOutput, 1);
-     }
-     else
-     {
-       BallMotor.set(ControlMode.PercentOutput, 0);
-     }
+    if (joy1.getRawButton(1) && (ultrasonicSensorOneRange <= 14.0 || joy1.getPOV() == 180)) {
+      BallMotor.set(ControlMode.PercentOutput, 1);
+    } else {
+      BallMotor.set(ControlMode.PercentOutput, 0);
+    }
 
-    if (Math.abs(joy1.getRawAxis(4)) > .1)
-    {
+    if (Math.abs(joy1.getRawAxis(4)) > .1) {
       LiftMotor1.set(ControlMode.PercentOutput, joy1.getRawAxis(4));
       LiftMotor2.set(ControlMode.PercentOutput, joy1.getRawAxis(4));
-    }
-      else
-    {
+    } else {
       LiftMotor1.set(ControlMode.PercentOutput, 0);
       LiftMotor2.set(ControlMode.PercentOutput, 0);
     }
@@ -167,8 +183,6 @@ public class Robot extends TimedRobot {
     LeftMotor2.setSensorPhase(true);
     RightMotor2.getFaults(_rightfaults);
     LeftMotor2.getFaults(_leftfaults);
-    SmartDashboard.putNumber("Right Sensor Vel:", RightMotor2.getSelectedSensorVelocity());
-    SmartDashboard.putNumber("Left Sensor Vel:", LeftMotor2.getSelectedSensorVelocity());
 
     double reverse = joy1.getRawAxis(2);
     double forward = joy1.getRawAxis(3);
@@ -194,7 +208,7 @@ public class Robot extends TimedRobot {
     drivetrain.setSafetyEnabled(true);
 
   }
- 
+
   @Override
   public void testPeriodic() {
   }
