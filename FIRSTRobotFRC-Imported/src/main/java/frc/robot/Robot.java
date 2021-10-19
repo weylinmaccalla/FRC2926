@@ -26,6 +26,9 @@ import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.AnalogInput;
+import edu.wpi.first.wpilibj.VictorSP;
+
+
 
 public class Robot extends TimedRobot {
   Faults _rightfaults = new Faults();
@@ -58,6 +61,8 @@ public class Robot extends TimedRobot {
   public int AutoCounter = 0;
 
   private final Joystick joy1 = new Joystick(0);
+
+  VictorSP Agitator = new VictorSP(0);
 
   DifferentialDrive drivetrain = new DifferentialDrive(leftmotors, rightmotors);
 
@@ -142,6 +147,12 @@ public class Robot extends TimedRobot {
       drivetrain.curvatureDrive(0, 0, false);
       if (AutoCounter < 250) {
         BallMotor.set(ControlMode.PercentOutput, 1);
+        Agitator.set(1);
+      }
+      else
+      {
+        BallMotor.set(ControlMode.PercentOutput, 0);
+        Agitator.set(0);
       }
     }
   }
@@ -167,8 +178,10 @@ public class Robot extends TimedRobot {
     }
 
     if (joy1.getRawButton(1) && (ultrasonicSensorOneRange <= 14.0 || joy1.getPOV() == 180)) {
+      Agitator.set(1);
       BallMotor.set(ControlMode.PercentOutput, 1);
     } else {
+      Agitator.set(0);
       BallMotor.set(ControlMode.PercentOutput, 0);
     }
 
