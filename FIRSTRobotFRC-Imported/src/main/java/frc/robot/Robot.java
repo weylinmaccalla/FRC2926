@@ -40,6 +40,7 @@ public class Robot extends TimedRobot {
 
   Compressor c;
   DoubleSolenoid DeploySpinner;
+  DoubleSolenoid Bridge;
 
   private final WPI_TalonSRX LeftMotor1 = new WPI_TalonSRX(1);
   private final WPI_TalonSRX LeftMotor2 = new WPI_TalonSRX(2);
@@ -81,6 +82,7 @@ public class Robot extends TimedRobot {
     LiftMotor2.configReverseLimitSwitchSource(RemoteLimitSwitchSource.RemoteTalonSRX, LimitSwitchNormal.NormallyOpen,
         1);
     DeploySpinner = new DoubleSolenoid(4, 5);
+    Bridge = new DoubleSolenoid(2,3); 
     c = new Compressor(0);
     c.setClosedLoopControl(true);
     try {
@@ -147,7 +149,7 @@ public class Robot extends TimedRobot {
       drivetrain.curvatureDrive(0, 0, false);
       if (AutoCounter < 250) {
         BallMotor.set(ControlMode.PercentOutput, 1);
-        Agitator.set(1);
+        Agitator.set(0.4);
       }
       else
       {
@@ -165,6 +167,12 @@ public class Robot extends TimedRobot {
       DeploySpinner.set(DoubleSolenoid.Value.kReverse);
     }
 
+    if(joy1.getRawButton(2)){
+      Bridge.set(DoubleSolenoid.Value.kForward);
+    } else {
+      Bridge.set(DoubleSolenoid.Value.kReverse);
+    }
+
     if (joy1.getPOV() == 90) {
       PanelSpinner.set(ControlMode.PercentOutput, -1);
     }
@@ -178,7 +186,7 @@ public class Robot extends TimedRobot {
     }
 
     if (joy1.getRawButton(1) && (ultrasonicSensorOneRange <= 14.0 || joy1.getPOV() == 180)) {
-      Agitator.set(1);
+      Agitator.set(0.4);
       BallMotor.set(ControlMode.PercentOutput, 1);
     } else {
       Agitator.set(0);
@@ -200,7 +208,7 @@ public class Robot extends TimedRobot {
     double reverse = joy1.getRawAxis(2);
     double forward = joy1.getRawAxis(3);
     double turn = joy1.getRawAxis(0);
-    double speed = ((forward - reverse) * (forward - reverse));
+    double speed = Math.sqrt(((forward - reverse) * (forward - reverse)));
     if (reverse > 0) {
       speed = speed * -1;
       turn = turn * -1;
