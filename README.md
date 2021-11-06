@@ -1,8 +1,9 @@
 # FRC2926Season2020
-The following links provide potentially useful information for programming the radio. 
+The following links provide potentially useful information for programming the robot. 
 
 ## Development Training
 Learn Java: https://www.codecademy.com/learn/learn-java
+
 Learn git: https://www.codecademy.com/learn/learn-git
 
 ## Development Environment Setup
@@ -16,9 +17,14 @@ Once git is installed, use VS Code to clone this repository, and commit/push any
 https://code.visualstudio.com/docs/editor/versioncontrol#_git-support
 
 ## WPILib Documentation 
+### Java API Docs
 https://first.wpi.edu/FRC/roborio/release/docs/java/index.html
 
-## Command based drive example 
+### Command Based Programming Docs
+https://docs.wpilib.org/en/stable/docs/software/commandbased/index.html
+
+## Command based drive examples
 https://github.com/wpilibsuite/allwpilib/tree/master/wpilibjExamples/src/main/java/edu/wpi/first/wpilibj/examples/hatchbottraditional
 
+https://github.com/wpilibsuite/allwpilib/tree/main/wpilibjExamples/src/main/java/edu/wpi/first/wpilibj/examples/frisbeebot
 
