@@ -13,10 +13,7 @@ import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.Faults;
-import com.ctre.phoenix.motorcontrol.LimitSwitchNormal;
-import com.ctre.phoenix.motorcontrol.RemoteLimitSwitchSource;
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import com.ctre.phoenix.motorcontrol.can.WPI_VictorSPX;
 import edu.wpi.first.wpilibj.PowerDistributionPanel;
@@ -25,12 +22,23 @@ import edu.wpi.first.wpilibj.SpeedControllerGroup;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
+import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.wpilibj.AnalogInput;
 import edu.wpi.first.wpilibj.VictorSP;
-
+import edu.wpi.first.wpilibj.controller.PIDController;
+import edu.wpi.first.wpilibj.Encoder;
+import edu.wpi.first.networktables.NetworkTableEntry;
+import edu.wpi.first.networktables.NetworkTableInstance;
 
 
 public class Robot extends TimedRobot {
+  NetworkTableEntry Yaw;
+
+  Encoder enc;
+  PIDController pid = new PIDController(.1, 0, 0);
+  private static final double cpr = 7 / 4; 
+  private static final double whd = 1.5;
+
   Faults _rightfaults = new Faults();
   Faults _leftfaults = new Faults();
 
@@ -51,10 +59,8 @@ public class Robot extends TimedRobot {
   private final WPI_TalonSRX RightMotor2 = new WPI_TalonSRX(4);
   SpeedControllerGroup rightmotors = new SpeedControllerGroup(RightMotor1, RightMotor2);
 
-  private final WPI_VictorSPX LiftMotor1 = new WPI_VictorSPX(6);
-  private final WPI_VictorSPX LiftMotor2 = new WPI_VictorSPX(7);
-  private final WPI_VictorSPX BallMotor = new WPI_VictorSPX(8);
-  private final WPI_VictorSPX PanelSpinner = new WPI_VictorSPX(9);
+  private final WPI_VictorSPX BallThrowerMotor = new WPI_VictorSPX(8);
+ 
 
   public AnalogInput ultrasonicSensorOne = new AnalogInput(0);
   public double ultrasonicSensorOneRange = 0;
@@ -63,7 +69,7 @@ public class Robot extends TimedRobot {
 
   private final Joystick joy1 = new Joystick(0);
 
-  VictorSP Agitator = new VictorSP(0);
+  VictorSP TurretSpinner = new VictorSP(0);
 
   DifferentialDrive drivetrain = new DifferentialDrive(leftmotors, rightmotors);
 
@@ -73,16 +79,11 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
+   
+    
+    enc = new Encoder(0, 1);
+    enc.setDistancePerPulse(((Math.PI * whd / cpr) / 17597.238550001526) * 360); // distance per pulse is pi* (wheel diameter / counts per revolution)
     SmartDashboard.putNumber("Sensor Max Range (inches)", 196);
-
-    LiftMotor1.setInverted(true);
-    LiftMotor2.setInverted(true);
-    LiftMotor1.configReverseLimitSwitchSource(RemoteLimitSwitchSource.RemoteTalonSRX, LimitSwitchNormal.NormallyOpen,
-        1);
-    LiftMotor2.configReverseLimitSwitchSource(RemoteLimitSwitchSource.RemoteTalonSRX, LimitSwitchNormal.NormallyOpen,
-        1);
-    DeploySpinner = new DoubleSolenoid(4, 5);
-    Bridge = new DoubleSolenoid(2,3); 
     c = new Compressor(0);
     c.setClosedLoopControl(true);
     try {
@@ -105,12 +106,85 @@ public class Robot extends TimedRobot {
 
   @Override
   public void robotPeriodic() {
+    SmartDashboard.putNumber("Encoder Angle", enc.getDistance());
+    NetworkTableInstance inst = NetworkTableInstance.getDefault();
+    NetworkTable table = inst.getTable("photonvision"); //.Logitech,_Inc._Webcam_C260
+    Yaw = table.getEntry("Logitech,_Inc._Webcam_C260/targetYaw");
+    SmartDashboard.putNumber("Yaw", (double) Yaw.getNumber(0));
+
+    if (joy1.getRawButton(3))
+    {
+      BallThrowerMotor.set(1);
+    }
+      else
+    {
+      BallThrowerMotor.set(0);
+    }
+    double OppositeAmp = joy1.getRawAxis(4); // Left and Right on Joystick
+    double AdjacentAmp = joy1.getRawAxis(5); // Up and Down on Joystick
+    double AngleRadians = Math.atan(Math.abs(OppositeAmp) / Math.abs(AdjacentAmp)); // Obtaining angle using Inverse
+                                                                                    // Tan, using the joysticks to
+                                                                                    // obtain side lengths
+    /*double AngleDegrees = Math.toDegrees(AngleRadians); // Converting Radians to Degrees
+    if (OppositeAmp < 0 && AdjacentAmp < 0) // Gives you angle in second quadrant
+    {
+      AngleDegrees = 360 - AngleDegrees;
+    } else if (OppositeAmp < 0 && AdjacentAmp > 0) // Gives you angle in third quadrant
+    {
+      AngleDegrees += 180;
+    } else if (OppositeAmp > 0 && AdjacentAmp > 0) // Gives you angle in fourth quadrant
+    {
+      AngleDegrees = 180 - AngleDegrees;
+    }
+    if (OppositeAmp == 0 && AdjacentAmp > 0) // Special case if joystick is down
+    {
+      AngleDegrees = 180;
+    }
+    if (OppositeAmp < 0 && AdjacentAmp == 0) // Special case if joystick is pointed to left
+    {
+      AngleDegrees = 270;
+    }
+
+    SmartDashboard.putNumber("Degrees", AngleDegrees);
+    double MotorSpeed = pid.calculate(enc.getDistance(), AngleDegrees);
+    */
+  
+    //if (MotorSpeed != 0)
+  //  {
+      //TurretSpinner.set(MotorSpeed);
+
+    //}
+      if (joy1.getRawButton(2)) {
+        
+      Double MotorSpeed = pid.calculate(enc.getDistance(), (enc.getDistance()+ (double) Yaw.getNumber(0)));
+      SmartDashboard.putNumber("Motor Speed", MotorSpeed);
+      SmartDashboard.putNumber("Delta Angle", (enc.getDistance()+ (double) Yaw.getNumber(0)));
+      SmartDashboard.putNumber("Motor Speed2", MotorSpeed);
+      TurretSpinner.set(MotorSpeed);
+
+    } 
+    else
+    {
+      TurretSpinner.set(0);
+    }
+
+
+    if (joy1.getPOV() == 90) {
+      TurretSpinner.set(0.5);
+    }
+    else if (joy1.getPOV() == 270)
+    {
+      TurretSpinner.set(-0.5);
+    }
+    if (joy1.getRawButton(1)) {
+      enc.reset();
+
     SmartDashboard.putNumber("Sensor 1 Range (Inches)", ultrasonicSensorOneRange);
     voltageScaleFactor = 5 / RobotController.getVoltage5V();
     ultrasonicSensorOneRange = (ultrasonicSensorOne.getValue() * voltageScaleFactor * 0.0492);
 
   }
-
+  }
   /**
    * This autonomous (along with the chooser code above) shows how to select
    * between different autonomous modes using the dashboard. The sendable chooser
@@ -127,12 +201,6 @@ public class Robot extends TimedRobot {
   public void autonomousInit() {
 
     SmartDashboard.putBoolean("Under Max Pressure", c.getPressureSwitchValue());
-    SmartDashboard.putNumber("Total Power Consumption", pdp.getTotalCurrent());
-    SmartDashboard.putNumber("Right Motor 1 Amps", pdp.getCurrent(1));
-    SmartDashboard.putNumber("Right Motor 2 Amps", pdp.getCurrent(2));
-    SmartDashboard.putNumber("Left Motor 1 Amps", pdp.getCurrent(14));
-    SmartDashboard.putNumber("Left Motor 2 Amps", pdp.getCurrent(15));
-    AutoCounter = 0;
 
   }
 
@@ -141,65 +209,10 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousPeriodic() {
-
-    if (ultrasonicSensorOneRange >= 14) {
-      drivetrain.curvatureDrive(-.15, 0, false);
-    } else {
-      AutoCounter += 1;
-      drivetrain.curvatureDrive(0, 0, false);
-      if (AutoCounter < 250) {
-        BallMotor.set(ControlMode.PercentOutput, 1);
-        Agitator.set(0.4);
-      }
-      else
-      {
-        BallMotor.set(ControlMode.PercentOutput, 0);
-        Agitator.set(0);
-      }
-    }
   }
 
   @Override
   public void teleopPeriodic() {
-    if (joy1.getRawButton(3)) {
-      DeploySpinner.set(DoubleSolenoid.Value.kForward);
-    } else {
-      DeploySpinner.set(DoubleSolenoid.Value.kReverse);
-    }
-
-    if(joy1.getRawButton(2)){
-      Bridge.set(DoubleSolenoid.Value.kForward);
-    } else {
-      Bridge.set(DoubleSolenoid.Value.kReverse);
-    }
-
-    if (joy1.getPOV() == 90) {
-      PanelSpinner.set(ControlMode.PercentOutput, -1);
-    }
-
-    if (joy1.getPOV() == 270) {
-      PanelSpinner.set(ControlMode.PercentOutput, 1);
-    }
-
-    if (joy1.getPOV() == -1) {
-      PanelSpinner.set(ControlMode.PercentOutput, 0);
-    }
-
-    if (joy1.getRawButton(1) && (ultrasonicSensorOneRange <= 14.0 || joy1.getPOV() == 180)) {
-      Agitator.set(0.4);
-      BallMotor.set(ControlMode.PercentOutput, 1);
-    } else {
-      Agitator.set(0);
-      BallMotor.set(ControlMode.PercentOutput, 0);
-    }
-
-    if (Math.abs(joy1.getRawAxis(4)) > .1) {
-      LiftMotor1.set(ControlMode.PercentOutput, joy1.getRawAxis(4));
-      LiftMotor2.set(ControlMode.PercentOutput, joy1.getRawAxis(4));
-    } else {
-      LiftMotor1.set(ControlMode.PercentOutput, 0);
-      LiftMotor2.set(ControlMode.PercentOutput, 0);
-    }
     RightMotor2.setSensorPhase(true);
     LeftMotor2.setSensorPhase(true);
     RightMotor2.getFaults(_rightfaults);
