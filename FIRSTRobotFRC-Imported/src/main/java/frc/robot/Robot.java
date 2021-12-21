@@ -21,6 +21,7 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.SpeedControllerGroup;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.Compressor;
+import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.wpilibj.AnalogInput;
@@ -30,10 +31,56 @@ import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
 
-
 public class Robot extends TimedRobot {
-  NetworkTableEntry Yaw;
+int LoopCounter = 0;
+  public void TurretStateMachine() {
+  if (turretState == TurretState.HomingLeft){
+    LoopCounter ++;
+    SmartDashboard.putNumber("LoopCounter", LoopCounter);
+    TurretSpinner.set(-.2);
+    if (!leftlimitSwitch.get()){
+      enc.reset();
+      turretState = TurretState.HomingRight;
+    }
+  }
+  else if (turretState == TurretState.HomingRight){
+    TurretSpinner.set(.2);
+    if(!rightlimitSwitch.get()){
+      MaxTurretAngle = enc.getDistance();
+      SmartDashboard.putNumber("Encoder Max Angle", enc.getDistance());
+      CenterTurretAngle = MaxTurretAngle/2;
+      turretState = TurretState.SearchLeft;
+    }
+  }
+  else if (turretState == TurretState.SearchLeft)
+  {
+    TurretSpinner.set(-.5);
+    // TODO, go to track
+    if (enc.getDistance() <= 10)
+    {
+      turretState = TurretState.SearchRight;
+    }
+  }
+  else if (turretState == TurretState.SearchRight)
+  {
+    TurretSpinner.set(.5);
+    if (enc.getDistance() >= MaxTurretAngle-10){
+     turretState = TurretState.SearchLeft; 
+    }
+  }
+  else if (turretState == TurretState.Track)
+  {
 
+  }
+  }
+
+  NetworkTableEntry Yaw;
+  TurretState turretState = TurretState.HomingLeft;
+  double MaxTurretAngle = 10000;
+  double CenterTurretAngle = 10000;
+  DigitalInput leftlimitSwitch = new DigitalInput(2);
+  DigitalInput rightlimitSwitch = new DigitalInput(3);
+  
   Encoder enc;
   PIDController pid = new PIDController(.1, 0, 0);
   private static final double cpr = 7 / 4; 
@@ -79,7 +126,6 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-   
     
     enc = new Encoder(0, 1);
     enc.setDistancePerPulse(((Math.PI * whd / cpr) / 17597.238550001526) * 360); // distance per pulse is pi* (wheel diameter / counts per revolution)
@@ -120,42 +166,8 @@ public class Robot extends TimedRobot {
     {
       BallThrowerMotor.set(0);
     }
-    double OppositeAmp = joy1.getRawAxis(4); // Left and Right on Joystick
-    double AdjacentAmp = joy1.getRawAxis(5); // Up and Down on Joystick
-    double AngleRadians = Math.atan(Math.abs(OppositeAmp) / Math.abs(AdjacentAmp)); // Obtaining angle using Inverse
-                                                                                    // Tan, using the joysticks to
-                                                                                    // obtain side lengths
-    /*double AngleDegrees = Math.toDegrees(AngleRadians); // Converting Radians to Degrees
-    if (OppositeAmp < 0 && AdjacentAmp < 0) // Gives you angle in second quadrant
-    {
-      AngleDegrees = 360 - AngleDegrees;
-    } else if (OppositeAmp < 0 && AdjacentAmp > 0) // Gives you angle in third quadrant
-    {
-      AngleDegrees += 180;
-    } else if (OppositeAmp > 0 && AdjacentAmp > 0) // Gives you angle in fourth quadrant
-    {
-      AngleDegrees = 180 - AngleDegrees;
-    }
-    if (OppositeAmp == 0 && AdjacentAmp > 0) // Special case if joystick is down
-    {
-      AngleDegrees = 180;
-    }
-    if (OppositeAmp < 0 && AdjacentAmp == 0) // Special case if joystick is pointed to left
-    {
-      AngleDegrees = 270;
-    }
-
-    SmartDashboard.putNumber("Degrees", AngleDegrees);
-    double MotorSpeed = pid.calculate(enc.getDistance(), AngleDegrees);
-    */
-  
-    //if (MotorSpeed != 0)
-  //  {
-      //TurretSpinner.set(MotorSpeed);
-
-    //}
-      if (joy1.getRawButton(2)) {
-        
+   
+     /* if (joy1.getRawButton(2)) {
       Double MotorSpeed = pid.calculate(enc.getDistance(), (enc.getDistance()+ (double) Yaw.getNumber(0)));
       SmartDashboard.putNumber("Motor Speed", MotorSpeed);
       SmartDashboard.putNumber("Delta Angle", (enc.getDistance()+ (double) Yaw.getNumber(0)));
@@ -167,24 +179,15 @@ public class Robot extends TimedRobot {
     {
       TurretSpinner.set(0);
     }
+*/
 
-
-    if (joy1.getPOV() == 90) {
-      TurretSpinner.set(0.5);
-    }
-    else if (joy1.getPOV() == 270)
-    {
-      TurretSpinner.set(-0.5);
-    }
-    if (joy1.getRawButton(1)) {
-      enc.reset();
 
     SmartDashboard.putNumber("Sensor 1 Range (Inches)", ultrasonicSensorOneRange);
     voltageScaleFactor = 5 / RobotController.getVoltage5V();
     ultrasonicSensorOneRange = (ultrasonicSensorOne.getValue() * voltageScaleFactor * 0.0492);
 
   }
-  }
+  
   /**
    * This autonomous (along with the chooser code above) shows how to select
    * between different autonomous modes using the dashboard. The sendable chooser
@@ -213,6 +216,7 @@ public class Robot extends TimedRobot {
 
   @Override
   public void teleopPeriodic() {
+    TurretStateMachine();
     RightMotor2.setSensorPhase(true);
     LeftMotor2.setSensorPhase(true);
     RightMotor2.getFaults(_rightfaults);
@@ -221,18 +225,18 @@ public class Robot extends TimedRobot {
     double reverse = joy1.getRawAxis(2);
     double forward = joy1.getRawAxis(3);
     double turn = joy1.getRawAxis(0);
-    double speed = Math.sqrt(((forward - reverse) * (forward - reverse)));
+    double speed = (forward - reverse) * (forward - reverse)*(forward - reverse);
     if (reverse > 0) {
-      speed = speed * -1;
+     // speed = speed * -1;
       turn = turn * -1;
     }
 
     if (joy1.getRawButton(5)) {
-      drivetrain.curvatureDrive(speed, -1, true);
+      drivetrain.curvatureDrive(speed, -.4, true);
     }
 
     if (joy1.getRawButton(6)) {
-      drivetrain.curvatureDrive(speed, 1, true);
+      drivetrain.curvatureDrive(speed, .4, true);
     }
 
     if ((joy1.getRawButton(5) == false) && (joy1.getRawButton(6) == false)) {
