@@ -32,46 +32,39 @@ import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
 
 public class Robot extends TimedRobot {
-int LoopCounter = 0;
-  public void TurretStateMachine() {
-  if (turretState == TurretState.HomingLeft){
-    LoopCounter ++;
-    SmartDashboard.putNumber("LoopCounter", LoopCounter);
-    TurretSpinner.set(-.2);
-    if (!leftlimitSwitch.get()){
-      enc.reset();
-      turretState = TurretState.HomingRight;
-    }
-  }
-  else if (turretState == TurretState.HomingRight){
-    TurretSpinner.set(.2);
-    if(!rightlimitSwitch.get()){
-      MaxTurretAngle = enc.getDistance();
-      SmartDashboard.putNumber("Encoder Max Angle", enc.getDistance());
-      CenterTurretAngle = MaxTurretAngle/2;
-      turretState = TurretState.SearchLeft;
-    }
-  }
-  else if (turretState == TurretState.SearchLeft)
-  {
-    TurretSpinner.set(-.5);
-    // TODO, go to track
-    if (enc.getDistance() <= 10)
-    {
-      turretState = TurretState.SearchRight;
-    }
-  }
-  else if (turretState == TurretState.SearchRight)
-  {
-    TurretSpinner.set(.5);
-    if (enc.getDistance() >= MaxTurretAngle-10){
-     turretState = TurretState.SearchLeft; 
-    }
-  }
-  else if (turretState == TurretState.Track)
-  {
+  int LoopCounter = 0;
 
-  }
+  public void TurretStateMachine() {
+    if (turretState == TurretState.HomingLeft) {
+      LoopCounter++;
+      SmartDashboard.putNumber("LoopCounter", LoopCounter);
+      TurretSpinner.set(-.2);
+      if (!leftlimitSwitch.get()) {
+        enc.reset();
+        turretState = TurretState.HomingRight;
+      }
+    } else if (turretState == TurretState.HomingRight) {
+      TurretSpinner.set(.2);
+      if (!rightlimitSwitch.get()) {
+        MaxTurretAngle = enc.getDistance();
+        SmartDashboard.putNumber("Encoder Max Angle", enc.getDistance());
+        CenterTurretAngle = MaxTurretAngle / 2;
+        turretState = TurretState.SearchLeft;
+      }
+    } else if (turretState == TurretState.SearchLeft) {
+      TurretSpinner.set(-.5);
+      // TODO, go to track
+      if (enc.getDistance() <= 10) {
+        turretState = TurretState.SearchRight;
+      }
+    } else if (turretState == TurretState.SearchRight) {
+      TurretSpinner.set(.5);
+      if (enc.getDistance() >= MaxTurretAngle - 10) {
+        turretState = TurretState.SearchLeft;
+      }
+    } else if (turretState == TurretState.Track) {
+
+    }
   }
 
   NetworkTableEntry Yaw;
@@ -80,10 +73,10 @@ int LoopCounter = 0;
   double CenterTurretAngle = 10000;
   DigitalInput leftlimitSwitch = new DigitalInput(2);
   DigitalInput rightlimitSwitch = new DigitalInput(3);
-  
+
   Encoder enc;
   PIDController pid = new PIDController(.1, 0, 0);
-  private static final double cpr = 7 / 4; 
+  private static final double cpr = 7 / 4;
   private static final double whd = 1.5;
 
   Faults _rightfaults = new Faults();
@@ -107,7 +100,6 @@ int LoopCounter = 0;
   SpeedControllerGroup rightmotors = new SpeedControllerGroup(RightMotor1, RightMotor2);
 
   private final WPI_VictorSPX BallThrowerMotor = new WPI_VictorSPX(8);
- 
 
   public AnalogInput ultrasonicSensorOne = new AnalogInput(0);
   public double ultrasonicSensorOneRange = 0;
@@ -126,9 +118,10 @@ int LoopCounter = 0;
    */
   @Override
   public void robotInit() {
-    
+
     enc = new Encoder(0, 1);
-    enc.setDistancePerPulse(((Math.PI * whd / cpr) / 17597.238550001526) * 360); // distance per pulse is pi* (wheel diameter / counts per revolution)
+    enc.setDistancePerPulse(((Math.PI * whd / cpr) / 17597.238550001526) * 360); // distance per pulse is pi* (wheel
+                                                                                 // diameter / counts per revolution)
     SmartDashboard.putNumber("Sensor Max Range (inches)", 196);
     c = new Compressor(0);
     c.setClosedLoopControl(true);
@@ -154,40 +147,33 @@ int LoopCounter = 0;
   public void robotPeriodic() {
     SmartDashboard.putNumber("Encoder Angle", enc.getDistance());
     NetworkTableInstance inst = NetworkTableInstance.getDefault();
-    NetworkTable table = inst.getTable("photonvision"); //.Logitech,_Inc._Webcam_C260
+    NetworkTable table = inst.getTable("photonvision"); // .Logitech,_Inc._Webcam_C260
     Yaw = table.getEntry("Logitech,_Inc._Webcam_C260/targetYaw");
     SmartDashboard.putNumber("Yaw", (double) Yaw.getNumber(0));
 
-    if (joy1.getRawButton(3))
-    {
+    if (joy1.getRawButton(3)) {
       BallThrowerMotor.set(1);
-    }
-      else
-    {
+    } else {
       BallThrowerMotor.set(0);
     }
-   
-     /* if (joy1.getRawButton(2)) {
-      Double MotorSpeed = pid.calculate(enc.getDistance(), (enc.getDistance()+ (double) Yaw.getNumber(0)));
-      SmartDashboard.putNumber("Motor Speed", MotorSpeed);
-      SmartDashboard.putNumber("Delta Angle", (enc.getDistance()+ (double) Yaw.getNumber(0)));
-      SmartDashboard.putNumber("Motor Speed2", MotorSpeed);
-      TurretSpinner.set(MotorSpeed);
 
-    } 
-    else
-    {
-      TurretSpinner.set(0);
-    }
-*/
-
+    /*
+     * if (joy1.getRawButton(2)) { Double MotorSpeed =
+     * pid.calculate(enc.getDistance(), (enc.getDistance()+ (double)
+     * Yaw.getNumber(0))); SmartDashboard.putNumber("Motor Speed", MotorSpeed);
+     * SmartDashboard.putNumber("Delta Angle", (enc.getDistance()+ (double)
+     * Yaw.getNumber(0))); SmartDashboard.putNumber("Motor Speed2", MotorSpeed);
+     * TurretSpinner.set(MotorSpeed);
+     * 
+     * } else { TurretSpinner.set(0); }
+     */
 
     SmartDashboard.putNumber("Sensor 1 Range (Inches)", ultrasonicSensorOneRange);
     voltageScaleFactor = 5 / RobotController.getVoltage5V();
     ultrasonicSensorOneRange = (ultrasonicSensorOne.getValue() * voltageScaleFactor * 0.0492);
 
   }
-  
+
   /**
    * This autonomous (along with the chooser code above) shows how to select
    * between different autonomous modes using the dashboard. The sendable chooser
@@ -225,9 +211,9 @@ int LoopCounter = 0;
     double reverse = joy1.getRawAxis(2);
     double forward = joy1.getRawAxis(3);
     double turn = joy1.getRawAxis(0);
-    double speed = (forward - reverse) * (forward - reverse)*(forward - reverse);
+    double speed = (forward - reverse) * (forward - reverse) * (forward - reverse);
     if (reverse > 0) {
-     // speed = speed * -1;
+      // speed = speed * -1;
       turn = turn * -1;
     }
 
