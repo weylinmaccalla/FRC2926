@@ -53,21 +53,44 @@ public class Robot extends TimedRobot {
       }
     } else if (turretState == TurretState.SearchLeft) {
       TurretSpinner.set(-.5);
-      // TODO, go to track
+
       if (enc.getDistance() <= 10) {
         turretState = TurretState.SearchRight;
+      } else if (HasTarget.getBoolean(false) == true) {
+        turretState = TurretState.Track;
       }
     } else if (turretState == TurretState.SearchRight) {
       TurretSpinner.set(.5);
+
       if (enc.getDistance() >= MaxTurretAngle - 10) {
         turretState = TurretState.SearchLeft;
+      } else if (HasTarget.getBoolean(false) == true) {
+        turretState = TurretState.Track;
       }
     } else if (turretState == TurretState.Track) {
+    
+      double setpoint = enc.getDistance() + (double) Yaw.getNumber(0);
 
+      if (setpoint <= 5)
+      {
+        setpoint = 5;
+      }
+      else if (setpoint >= MaxTurretAngle-2)
+      {
+        setpoint = MaxTurretAngle-2;
+      }    
+      Double MotorSpeed = pid.calculate(enc.getDistance(), setpoint);
+      TurretSpinner.set(MotorSpeed);
+      
+      if (HasTarget.getBoolean(false) == false) {
+        turretState = TurretState.SearchLeft;
+      }
     }
   }
 
   NetworkTableEntry Yaw;
+  NetworkTableEntry HasTarget;
+  NetworkTableEntry TargetArea;
   TurretState turretState = TurretState.HomingLeft;
   double MaxTurretAngle = 10000;
   double CenterTurretAngle = 10000;
@@ -149,24 +172,17 @@ public class Robot extends TimedRobot {
     NetworkTableInstance inst = NetworkTableInstance.getDefault();
     NetworkTable table = inst.getTable("photonvision"); // .Logitech,_Inc._Webcam_C260
     Yaw = table.getEntry("Logitech,_Inc._Webcam_C260/targetYaw");
+    HasTarget = table.getEntry("Logitech,_Inc._Webcam_C260/hasTarget");
+    TargetArea = table.getEntry("Logitech,_Inc._Webcam_C260/targetArea");
     SmartDashboard.putNumber("Yaw", (double) Yaw.getNumber(0));
+    SmartDashboard.putBoolean("Has Target?", HasTarget.getBoolean(false));
+    SmartDashboard.putNumber("Target Area", (double) TargetArea.getNumber(0));
 
     if (joy1.getRawButton(3)) {
       BallThrowerMotor.set(1);
     } else {
       BallThrowerMotor.set(0);
     }
-
-    /*
-     * if (joy1.getRawButton(2)) { Double MotorSpeed =
-     * pid.calculate(enc.getDistance(), (enc.getDistance()+ (double)
-     * Yaw.getNumber(0))); SmartDashboard.putNumber("Motor Speed", MotorSpeed);
-     * SmartDashboard.putNumber("Delta Angle", (enc.getDistance()+ (double)
-     * Yaw.getNumber(0))); SmartDashboard.putNumber("Motor Speed2", MotorSpeed);
-     * TurretSpinner.set(MotorSpeed);
-     * 
-     * } else { TurretSpinner.set(0); }
-     */
 
     SmartDashboard.putNumber("Sensor 1 Range (Inches)", ultrasonicSensorOneRange);
     voltageScaleFactor = 5 / RobotController.getVoltage5V();
