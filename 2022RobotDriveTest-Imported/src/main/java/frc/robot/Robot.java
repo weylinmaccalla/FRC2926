@@ -3,6 +3,7 @@
 // the WPILib BSD license file in the root directory of this project.
 
 package frc.robot;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.Joystick;
@@ -25,7 +26,7 @@ import com.revrobotics.ColorSensorV3;
  * project.
  */
 public class Robot extends TimedRobot {
-
+ PIDController shooterPID = new PIDController(.00005, .00005, 0);
   // CAN ID 0 = Power Board, CAN ID 1 = Shooter, CAN ID 2 = Feeder
   private final Joystick joy1 = new Joystick(0);
 
@@ -60,6 +61,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
+    Feeder.setInverted(true);
     leftMotor1.setInverted(true);
     leftMotor2.setInverted(true);
     intake = new DoubleSolenoid(5, PneumaticsModuleType.CTREPCM, 1,0);
@@ -125,10 +127,12 @@ public class Robot extends TimedRobot {
     int proximity = m_colorSensor.getProximity();
     int redColor = m_colorSensor.getRed();
     int blueColor = m_colorSensor.getBlue();
-
     SmartDashboard.putString("Ball", ball);
 
     boolean quickTurn = false;
+    double CorrectedShooterSpeed = shooterPID.calculate(Shooter.getEncoder().getVelocity(), 1300);
+    SmartDashboard.putNumber("PID Shooter Speed", CorrectedShooterSpeed);
+
     double reverse = joy1.getRawAxis(2);
     double forward = joy1.getRawAxis(3);
     double speed = forward - reverse;
@@ -138,7 +142,7 @@ public class Robot extends TimedRobot {
     double shooterSpeed = Shooter.getEncoder().getVelocity();
     SmartDashboard.putNumber("Shooter Speed", shooterSpeed);
     SmartDashboard.putNumber("Shooter Timer", shooterTimer);
-    if (proximity > 120) {
+    if (proximity > 250) {
       if (redColor > blueColor) {
         ball = "Red Ball";
       } else {
@@ -147,22 +151,22 @@ public class Robot extends TimedRobot {
     } else {
       ball = "No Ball";
     }
-
+   
     if (joy1.getRawButton(2)) {
-      if (proximity < 120) {
+      if (proximity < 250) {
         shooterTimer++;
         Feeder.set(.4);
 
         if (shooterTimer > 50) {
           Shooter.set(0);
         }
-      } else if (proximity > 120) {
-        if (shooterSpeed < 2500) {
-          Shooter.set(.5);
+      } else if (proximity > 250) {
+        if (shooterSpeed < 1300) { //1300 RPM works well for low
+          Shooter.set(.3);
           Feeder.set(0);
         } else {
           shooterTimer = 0;
-          Shooter.set(.5);
+          Shooter.set(.3);
           Feeder.set(1);
         }
       }
@@ -176,14 +180,14 @@ public class Robot extends TimedRobot {
 
       intake.set(DoubleSolenoid.Value.kForward);
 
-      if (proximity < 120)
+      if (proximity < 250)
       {
-      ballCollector.set(.4);
+      ballCollector.set(.65);
       Feeder.set(.4);
       }
       else
       {
-      ballCollector.set(.4);
+      ballCollector.set(.65);
       Feeder.set(0);
       }
     } 
@@ -201,8 +205,15 @@ public class Robot extends TimedRobot {
       quickTurn = false;
     }
 
+    if (joy1.getRawButton(3))
+    {
+      Shooter.set(CorrectedShooterSpeed);
+
+    }
+
     drivetrain.curvatureDrive(adjustedSpeed, turn, quickTurn);
     drivetrain.setSafetyEnabled(true);
+
 
   }
 
