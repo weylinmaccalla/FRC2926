@@ -15,6 +15,8 @@ import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import com.revrobotics.ColorSensorV3;
+import com.revrobotics.RelativeEncoder;
+import com.revrobotics.SparkMaxPIDController;
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -26,7 +28,13 @@ import com.revrobotics.ColorSensorV3;
  * project.
  */
 public class Robot extends TimedRobot {
- PIDController shooterPID = new PIDController(.00005, .00005, 0);
+
+ private SparkMaxPIDController shooterVelocityPID;
+ private RelativeEncoder shooterEncoder;
+ public double kP, kI, kD, kIz, kFF, kMaxOutput, kMinOutput, maxRPM, presetsetpoint;
+
+ //PIDController shooterPID = new PIDController(.00005, .00005, 0);
+
   // CAN ID 0 = Power Board, CAN ID 1 = Shooter, CAN ID 2 = Feeder
   private final Joystick joy1 = new Joystick(0);
 
@@ -61,9 +69,39 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
+
+    shooterVelocityPID = Shooter.getPIDController();
+    shooterEncoder = Shooter.getEncoder();
+
+    // PID coefficients
+
+    kP = .0001; 
+    kI = .000015;
+    kD = 0; 
+    kIz = 0; 
+    kFF = 0.0002; 
+    kMaxOutput = 1; 
+    kMinOutput = -1;
+    maxRPM = 5700;
+    presetsetpoint = 1300;
+
+    // set PID coefficients
+    shooterVelocityPID.setP(kP);
+    shooterVelocityPID.setI(kI);
+    shooterVelocityPID.setD(kD);
+    shooterVelocityPID.setIZone(kIz);
+    shooterVelocityPID.setFF(kFF);
+    shooterVelocityPID.setOutputRange(kMinOutput, kMaxOutput);
+
+    // display PID coefficients on SmartDashboard
+   
+
+
     Feeder.setInverted(true);
+
     leftMotor1.setInverted(true);
     leftMotor2.setInverted(true);
+
     intake = new DoubleSolenoid(5, PneumaticsModuleType.CTREPCM, 1,0);
     Shooter.setInverted(true);
     Feeder.setInverted(true);
@@ -124,14 +162,16 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
+       // read PID coefficients from SmartDashboard
     int proximity = m_colorSensor.getProximity();
     int redColor = m_colorSensor.getRed();
     int blueColor = m_colorSensor.getBlue();
     SmartDashboard.putString("Ball", ball);
 
     boolean quickTurn = false;
-    double CorrectedShooterSpeed = shooterPID.calculate(Shooter.getEncoder().getVelocity(), 1300);
-    SmartDashboard.putNumber("PID Shooter Speed", CorrectedShooterSpeed);
+    
+   // double CorrectedShooterSpeed = shooterPID.calculate(Shooter.getEncoder().getVelocity(), 1300);
+   // SmartDashboard.putNumber("PID Shooter Speed", CorrectedShooterSpeed);
 
     double reverse = joy1.getRawAxis(2);
     double forward = joy1.getRawAxis(3);
@@ -140,8 +180,14 @@ public class Robot extends TimedRobot {
     double adjustedSpeed = Math.pow(speed, 3);
 
     double shooterSpeed = Shooter.getEncoder().getVelocity();
+
     SmartDashboard.putNumber("Shooter Speed", shooterSpeed);
     SmartDashboard.putNumber("Shooter Timer", shooterTimer);
+    SmartDashboard.putNumber("P Gain", Shooter.getPIDController().getP());
+    SmartDashboard.putNumber("I Gain", Shooter.getPIDController().getI());
+    SmartDashboard.putNumber("D Gain", Shooter.getPIDController().getD());
+    SmartDashboard.putNumber("Feed Forward", Shooter.getPIDController().getFF());
+
     if (proximity > 250) {
       if (redColor > blueColor) {
         ball = "Red Ball";
@@ -153,26 +199,41 @@ public class Robot extends TimedRobot {
     }
    
     if (joy1.getRawButton(2)) {
+
       if (proximity < 250) {
         shooterTimer++;
         Feeder.set(.4);
 
-        if (shooterTimer > 50) {
-          Shooter.set(0);
+      if (shooterTimer > 50) {
+
+        Shooter.set(0);
+
         }
-      } else if (proximity > 250) {
-        if (shooterSpeed < 1300) { //1300 RPM works well for low
-          Shooter.set(.3);
-          Feeder.set(0);
-        } else {
+      } 
+      else if (proximity > 250) 
+      {
+        shooterVelocityPID.setReference(1300, CANSparkMax.ControlType.kVelocity);
+        double error = 1300 - shooterSpeed;
+
+        if (Math.abs(error) < 70)
+        {
+          //Feeder.set(1);
           shooterTimer = 0;
-          Shooter.set(.3);
-          Feeder.set(1);
         }
       }
-    } else {
+    } 
+    else 
+      {
       Shooter.set(0);
       Feeder.set(0);
+    }
+    if (joy1.getRawButton(3))
+    {
+      shooterVelocityPID.setReference(1300, CANSparkMax.ControlType.kVelocity);
+    }
+    else
+    {
+      //Shooter.set(0);
     }
 
     if (joy1.getRawButton(1)) 
@@ -205,15 +266,8 @@ public class Robot extends TimedRobot {
       quickTurn = false;
     }
 
-    if (joy1.getRawButton(3))
-    {
-      Shooter.set(CorrectedShooterSpeed);
-
-    }
-
     drivetrain.curvatureDrive(adjustedSpeed, turn, quickTurn);
     drivetrain.setSafetyEnabled(true);
-
 
   }
 
