@@ -75,8 +75,9 @@ public class Robot extends TimedRobot {
 
     // PID coefficients
 
-    kP = .0001; 
-    kI = .000015;
+    kP = .0002; 
+    //kI = .000015;
+    kI = 0;
     kD = 0; 
     kIz = 0; 
     kFF = 0.0002; 
@@ -86,12 +87,12 @@ public class Robot extends TimedRobot {
     presetsetpoint = 1300;
 
     // set PID coefficients
-    shooterVelocityPID.setP(kP);
-    shooterVelocityPID.setI(kI);
-    shooterVelocityPID.setD(kD);
-    shooterVelocityPID.setIZone(kIz);
-    shooterVelocityPID.setFF(kFF);
-    shooterVelocityPID.setOutputRange(kMinOutput, kMaxOutput);
+    shooterVelocityPID.setP(kP, 0);
+    shooterVelocityPID.setI(kI, 0);
+    shooterVelocityPID.setD(kD, 0);
+    shooterVelocityPID.setIZone(kIz, 0);
+    shooterVelocityPID.setFF(kFF, 0);
+    shooterVelocityPID.setOutputRange(kMinOutput, kMaxOutput, 0);
 
     // display PID coefficients on SmartDashboard
    
@@ -212,12 +213,13 @@ public class Robot extends TimedRobot {
       } 
       else if (proximity > 250) 
       {
-        shooterVelocityPID.setReference(1300, CANSparkMax.ControlType.kVelocity);
+       
+        SmartDashboard.putNumber("setReference Output ", shooterVelocityPID.setReference(1300.0, CANSparkMax.ControlType.kVelocity, 0).value);
         double error = 1300 - shooterSpeed;
 
         if (Math.abs(error) < 70)
         {
-          //Feeder.set(1);
+          Feeder.set(1);
           shooterTimer = 0;
         }
       }
@@ -227,15 +229,7 @@ public class Robot extends TimedRobot {
       Shooter.set(0);
       Feeder.set(0);
     }
-    if (joy1.getRawButton(3))
-    {
-      shooterVelocityPID.setReference(1300, CANSparkMax.ControlType.kVelocity);
-    }
-    else
-    {
-      //Shooter.set(0);
-    }
-
+   
     if (joy1.getRawButton(1)) 
     {
 
