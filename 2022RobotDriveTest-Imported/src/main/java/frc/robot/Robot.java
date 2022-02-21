@@ -237,12 +237,12 @@ public class Robot extends TimedRobot {
 
       if (proximity < 250)
       {
-      ballCollector.set(.65);
+      ballCollector.set(.25);
       Feeder.set(.4);
       }
       else
       {
-      ballCollector.set(.65);
+      ballCollector.set(.25);
       Feeder.set(0);
       }
     } 
@@ -252,7 +252,14 @@ public class Robot extends TimedRobot {
 
       ballCollector.set(0);
     }
-
+    if (joy1.getRawButton(4))
+    {
+      ballCollector.set(.25);
+    }
+    else
+    {
+      ballCollector.set(0);
+    }
 
     if (joy1.getRawButton(5)) {
       quickTurn = true;
