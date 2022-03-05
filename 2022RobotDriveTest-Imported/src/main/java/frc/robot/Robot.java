@@ -8,6 +8,7 @@ import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.PneumaticsModuleType;
+import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.motorcontrol.MotorControllerGroup;
@@ -15,7 +16,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 
-
+import edu.wpi.first.wpilibj.AnalogInput;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import com.revrobotics.ColorSensorV3;
@@ -31,6 +32,10 @@ import com.revrobotics.SparkMaxPIDController;
  * project.
  */
 public class Robot extends TimedRobot {
+
+  public AnalogInput ultrasonicSensorOne = new AnalogInput(0);
+  public double ultrasonicSensorOneRange = 0;
+  public double voltageScaleFactor = 1;
 
 
   private SparkMaxPIDController shooterVelocityPID;
@@ -70,12 +75,19 @@ public class Robot extends TimedRobot {
 
   int shooterTimer = 0;
   int intakeTimer = 150;
+  int reverseTimer = 0;
   String ball = "";
   double intakeSpeed = .3;
   boolean isRightSwitchBumped = false;
   boolean isLeftSwitchBumped = false;
 
   SendableChooser<Integer> autonomousChooser = new SendableChooser<>();
+
+int proximity;
+double shooterSpeed;
+double voltage_scale_factor;
+double currentDistanceCentimeters;
+double currentDistanceInches;
 
 
   /**
@@ -138,6 +150,21 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotPeriodic() {
+    proximity = colorSensor.getProximity();
+    double rawValue = ultrasonicSensorOne.getValue();
+
+    shooterSpeed = shooter.getEncoder().getVelocity();
+
+    
+    //voltage_scale_factor allows us to compensate for differences in supply voltage.
+
+double voltage_scale_factor = 5/RobotController.getVoltage5V();
+ currentDistanceCentimeters = rawValue * voltage_scale_factor * 0.125;
+ currentDistanceInches = rawValue * voltage_scale_factor * 0.0492;
+
+ SmartDashboard.putNumber("Ultrasonic Sensor Distance (In.)", currentDistanceInches);  
+ SmartDashboard.putNumber("Ultrasonic Sensor Distance (Cm.)", currentDistanceCentimeters);  
+
     SmartDashboard.putNumber("Right Climber Encoder", rightClimber.getEncoder().getPosition());
     SmartDashboard.putNumber("Left Climber Encoder", leftClimber.getEncoder().getPosition());
 
@@ -168,6 +195,7 @@ public class Robot extends TimedRobot {
   public void autonomousInit() {
   isRightSwitchBumped = false;
   isLeftSwitchBumped = false;
+  reverseTimer = 0;
 
 
   }
@@ -225,18 +253,81 @@ public class Robot extends TimedRobot {
     if (autonomousChooser.getSelected() == 1) // Drive, Shoot, Reverse
     {
 
+      if (currentDistanceInches > 15.0 && proximity > 250)
+      {
+        drivetrain.curvatureDrive(.1, 0, false);
+      }
+      else if (proximity > 250)
+      {
+      drivetrain.curvatureDrive(0, 0, false);
+      shooterVelocityPID.setReference(1300.0, CANSparkMax.ControlType.kVelocity, 0);
+      double error = 1300 - shooterSpeed;
+
+      if (Math.abs(error) < 70) {
+        feeder.set(1);
+        ballCollector.set(intakeSpeed);
+      }
+      }
+
+      if (proximity < 250)
+      {
+        reverseTimer++;
+        shooter.set(0);
+        feeder.set(0);
+        ballCollector.set(0);
+
+        if (reverseTimer > 200)
+        {
+          drivetrain.curvatureDrive(0, 0, false);
+        }
+        else
+        {
+          drivetrain.curvatureDrive(-.2, 0, false);
+        }
+      }
     }
     else if (autonomousChooser.getSelected() == 2) //Drive, Shoot, Stop
     {
+      
+      if (currentDistanceInches > 15.0 && proximity > 250)
+      {
+        drivetrain.curvatureDrive(.1, 0, false);
+      }
+      else if (proximity > 250)
+      {
+      drivetrain.curvatureDrive(0, 0, false);
+      shooterVelocityPID.setReference(1300.0, CANSparkMax.ControlType.kVelocity, 0);
+      double error = 1300 - shooterSpeed;
 
+      if (Math.abs(error) < 70) {
+        feeder.set(1);
+        ballCollector.set(intakeSpeed);
+      }
+      }
+
+      if (proximity < 250)
+      {
+        shooter.set(0);
+        feeder.set(0);
+        ballCollector.set(0);
+        drivetrain.curvatureDrive(0, 0, false);
+      }
     }
     else if (autonomousChooser.getSelected() == 3) // Reverse
     {
-
+      reverseTimer++;
+      if (reverseTimer > 200)
+      {
+        drivetrain.curvatureDrive(0, 0, false);
+      }
+      else
+      {
+        drivetrain.curvatureDrive(-.2, 0, false);
+      }
     }
     else if (autonomousChooser.getSelected() == 4) // Do Nothing
     {
-
+     drivetrain.curvatureDrive(0, 0, false);
     }
 
   }
@@ -250,7 +341,6 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
 
-    int proximity = colorSensor.getProximity();
     int redColor = colorSensor.getRed();
     int blueColor = colorSensor.getBlue();
     SmartDashboard.putString("Ball", ball);
@@ -261,7 +351,6 @@ public class Robot extends TimedRobot {
     double forward = driverController.getRawAxis(3);
     double speed = Math.pow((forward - reverse),7);
     double turn = -driverController.getRawAxis(0);
-    double shooterSpeed = shooter.getEncoder().getVelocity();
 
     
 
