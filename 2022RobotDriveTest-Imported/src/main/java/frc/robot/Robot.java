@@ -77,17 +77,17 @@ public class Robot extends TimedRobot {
   int intakeTimer = 150;
   int reverseTimer = 0;
   String ball = "";
-  double intakeSpeed = .3;
+  double intakeSpeed = .35;
   boolean isRightSwitchBumped = false;
   boolean isLeftSwitchBumped = false;
 
   SendableChooser<Integer> autonomousChooser = new SendableChooser<>();
 
-int proximity;
-double shooterSpeed;
-double voltage_scale_factor;
-double currentDistanceCentimeters;
-double currentDistanceInches;
+  int proximity;
+  double shooterSpeed;
+  double voltage_scale_factor;
+  double currentDistanceCentimeters;
+  double currentDistanceInches;
 
 
   /**
@@ -97,11 +97,12 @@ double currentDistanceInches;
    */
   @Override
   public void robotInit() {
-
-    autonomousChooser.setDefaultOption("Drive, Shoot, Reverse", 1);
+    leftMotors.setInverted(true);
+    rightMotors.setInverted(true);
+    autonomousChooser.addOption("Drive, Shoot, Reverse", 1);
     autonomousChooser.addOption("Drive, Shoot, Stop", 2);
     autonomousChooser.addOption("Reverse", 3);
-    autonomousChooser.addOption("Nothing",4);
+    autonomousChooser.setDefaultOption("Nothing",4);
 
     SmartDashboard.putData("Option",autonomousChooser);
 
@@ -162,16 +163,8 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
  currentDistanceCentimeters = rawValue * voltage_scale_factor * 0.125;
  currentDistanceInches = rawValue * voltage_scale_factor * 0.0492;
 
- SmartDashboard.putNumber("Ultrasonic Sensor Distance (In.)", currentDistanceInches);  
- SmartDashboard.putNumber("Ultrasonic Sensor Distance (Cm.)", currentDistanceCentimeters);  
-
-    SmartDashboard.putNumber("Right Climber Encoder", rightClimber.getEncoder().getPosition());
-    SmartDashboard.putNumber("Left Climber Encoder", leftClimber.getEncoder().getPosition());
-
-    SmartDashboard.putNumber("Autonomous Program", autonomousChooser.getSelected());
-    int proximity = colorSensor.getProximity();
-    SmartDashboard.putNumber("Proximity", proximity);
-
+ 
+ 
   }
 
   /**
@@ -349,10 +342,17 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
 
     double reverse = driverController.getRawAxis(2);
     double forward = driverController.getRawAxis(3);
-    double speed = Math.pow((forward - reverse),7);
-    double turn = -driverController.getRawAxis(0);
+    double speed;
+    double turn = driverController.getRawAxis(0);
 
-    
+    if (driverController.getBButton())
+    {
+      speed = (Math.pow((forward - reverse), 7));    
+    }
+    else
+    {
+      speed = (Math.pow((forward - reverse), 7)) /2;
+    }
 
     //Inverts turning when reversing the robot
     if (speed < 0)
@@ -406,13 +406,13 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
     if (driverController.getLeftBumper()) 
     {
       quickTurn = true;
-      turn = .4;
+      turn = -.4;
     } 
     
     if (driverController.getRightBumper())
     {
       quickTurn = true;
-      turn = -.4;
+      turn = .4;
     }
     
 
@@ -525,9 +525,6 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       } 
       else if (proximity > 250) 
       {
-
-        SmartDashboard.putNumber("setReference Output ",
-        shooterVelocityPID.setReference(1300.0, CANSparkMax.ControlType.kVelocity, 0).value);
         double error = 1300 - shooterSpeed;
 
         if (Math.abs(error) < 70) {
@@ -546,6 +543,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       //if (!operatorController.getRawButton(4)) {
        // feeder.set(0);
      // }
+
     }
 
   }
@@ -568,5 +566,6 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
   /** This function is called periodically during test mode. */
   @Override
   public void testPeriodic() {
+    
   }
 }
