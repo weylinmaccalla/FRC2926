@@ -15,7 +15,6 @@ import edu.wpi.first.wpilibj.motorcontrol.MotorControllerGroup;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
-
 import edu.wpi.first.wpilibj.AnalogInput;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
@@ -77,6 +76,7 @@ public class Robot extends TimedRobot {
   int intakeTimer = 150;
   int reverseTimer = 0;
   String ball = "";
+  //Boolean Ball = true;
   double intakeSpeed = .35;
   boolean isRightSwitchBumped = false;
   boolean isLeftSwitchBumped = false;
@@ -104,7 +104,7 @@ public class Robot extends TimedRobot {
     autonomousChooser.addOption("Reverse", 3);
     autonomousChooser.setDefaultOption("Nothing",4);
 
-    SmartDashboard.putData("Option",autonomousChooser);
+    SmartDashboard.putData("Autonomous Program",autonomousChooser);
 
     shooterVelocityPID = shooter.getPIDController();
 
@@ -337,6 +337,10 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
     int redColor = colorSensor.getRed();
     int blueColor = colorSensor.getBlue();
     SmartDashboard.putString("Ball", ball);
+  
+
+    //SmartDashboard.putBoolean("Ball Color", Ball);
+
 
     boolean quickTurn = false;
 
@@ -419,7 +423,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
     drivetrain.curvatureDrive(speed, turn, quickTurn);
 
 
-    if (proximity > 250) {
+     if (proximity > 250) {
       if (redColor > blueColor) 
       {
         ball = "Red Ball";
@@ -431,8 +435,24 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       {
       ball = "No Ball";
       }
+    
+    /* Lets set blue to true, red to false
+     
+    if (proximity > 250) {
+      if (redColor > blueColor) 
+      {
+        Ball = false;
+      } 
+      else 
+      {
+        Ball = true;
+      }
+      } 
+    else 
+      {
 
-      
+      }
+      */
     if (operatorController.getLeftBumper())
     {
       feeder.set(-.4);

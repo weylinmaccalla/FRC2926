@@ -1,6 +1,11 @@
 {
   "HALProvider": {
     "Other Devices": {
+      "Compressor[5]": {
+        "header": {
+          "open": true
+        }
+      },
       "REV Color Sensor V3[0,82]": {
         "header": {
           "open": true
@@ -12,7 +17,11 @@
     "types": {
       "/FMSInfo": "FMSInfo",
       "/LiveWindow/Ungrouped/DifferentialDrive[1]": "DifferentialDrive",
-      "/LiveWindow/Ungrouped/PIDController[1]": "PIDController"
+      "/LiveWindow/Ungrouped/DigitalInput[0]": "Digital Input",
+      "/LiveWindow/Ungrouped/DigitalInput[1]": "Digital Input",
+      "/LiveWindow/Ungrouped/PIDController[1]": "PIDController",
+      "/SmartDashboard/Autonomous Program": "String Chooser",
+      "/SmartDashboard/Option": "String Chooser"
     }
   }
 }
