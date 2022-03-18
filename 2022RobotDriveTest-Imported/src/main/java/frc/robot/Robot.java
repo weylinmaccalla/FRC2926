@@ -88,7 +88,7 @@ public class Robot extends TimedRobot {
   double voltage_scale_factor;
   double currentDistanceCentimeters;
   double currentDistanceInches;
-
+  boolean doneReversing = false;
 
   /**
    * This function is run when the robot is first started up and should be used
@@ -103,6 +103,7 @@ public class Robot extends TimedRobot {
     autonomousChooser.addOption("Drive, Shoot, Stop", 2);
     autonomousChooser.addOption("Reverse", 3);
     autonomousChooser.setDefaultOption("Nothing",4);
+    autonomousChooser.addOption("High Goal", 5);
 
     SmartDashboard.putData("Autonomous Program",autonomousChooser);
 
@@ -122,7 +123,7 @@ public class Robot extends TimedRobot {
     // 2500 rpm at 35 inches from fender works for high goal
     lowGoalSetpoint = 1500;
     highGoalSetpoint = 2500;
-    distanceFromFender = 35;
+    distanceFromFender = 30;
      
 
 
@@ -331,12 +332,48 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
     {
      drivetrain.curvatureDrive(0, 0, false);
     }
+    else if (autonomousChooser.getSelected() == 5) // Shoot in high goal
+    {
+      if (currentDistanceInches < distanceFromFender && proximity > 250 && !doneReversing)
+      {
+        drivetrain.curvatureDrive(-.15, 0, false);
+      }
+      else if (proximity > 250) // Ball is in shooter
+      {
+      doneReversing = true;
+      drivetrain.curvatureDrive(0, 0, false);
+      shooterVelocityPID.setReference(highGoalSetpoint, CANSparkMax.ControlType.kVelocity, 0);
+      double error = highGoalSetpoint - shooterSpeed;
 
+      if (Math.abs(error) < 70) {
+        feeder.set(1);
+        ballCollector.set(intakeSpeed);
+      }
+      }
+
+      if (proximity < 250)
+      {
+        reverseTimer++;
+        shooter.set(0);
+        feeder.set(0);
+        ballCollector.set(0);
+
+        if (reverseTimer > 100)
+        {
+          drivetrain.curvatureDrive(0, 0, false);
+        }
+        else
+        {
+          drivetrain.curvatureDrive(-.2, 0, false);
+        }
+      }
+    }
   }
 
   /** This function is called once when teleop is enabled. */
   @Override
   public void teleopInit() {
+    doneReversing = false;
   }
 
   /** This function is called periodically during operatorController control. */
@@ -518,12 +555,13 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
     if (operatorController.getYButton())
     {
       //When pressed, move robot to 35 inches from fender
-      if (currentDistanceInches < distanceFromFender)
+      if (currentDistanceInches < distanceFromFender && !doneReversing)
       {
         drivetrain.curvatureDrive(-.15, 0, false);
       }
       else
       {
+        doneReversing = true;
         drivetrain.curvatureDrive(0, 0, false);
       
       
@@ -544,7 +582,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       else if (proximity > 250) 
       {
         shooterVelocityPID.setReference(highGoalSetpoint, CANSparkMax.ControlType.kVelocity, 0);
-        double error = 1300 - shooterSpeed;
+        double error = highGoalSetpoint - shooterSpeed;
 
         if (Math.abs(error) < 70) {
           feeder.set(1);
@@ -555,6 +593,11 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
     }
 
 
+
+    }
+    else
+    {
+      doneReversing = false;
     }
    
 
