@@ -20,6 +20,7 @@ import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import com.revrobotics.ColorSensorV3;
 import com.revrobotics.SparkMaxPIDController;
+import com.revrobotics.CANSparkMax.IdleMode;
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -38,7 +39,7 @@ public class Robot extends TimedRobot {
 
 
   private SparkMaxPIDController shooterVelocityPID;
-  public double kP, kI, kD, kIz, kFF, kMaxOutput, kMinOutput, maxRPM, shooterSetpoint;
+  public double kP, kI, kD, kIz, kFF, kMaxOutput, kMinOutput, maxRPM, lowGoalSetpoint, highGoalSetpoint, distanceFromFender;
 
   private final XboxController operatorController = new XboxController(0);
   private final XboxController driverController = new XboxController(1);
@@ -76,8 +77,7 @@ public class Robot extends TimedRobot {
   int intakeTimer = 150;
   int reverseTimer = 0;
   String ball = "";
-  //Boolean Ball = true;
-  double intakeSpeed = .35;
+  double intakeSpeed = .3;
   boolean isRightSwitchBumped = false;
   boolean isLeftSwitchBumped = false;
 
@@ -118,7 +118,15 @@ public class Robot extends TimedRobot {
     kMaxOutput = 1;
     kMinOutput = -1;
     maxRPM = 5700;
-    shooterSetpoint = 1300;
+    // 1500 is pretty good for low goal
+    // 2500 rpm at 35 inches from fender works for high goal
+    lowGoalSetpoint = 1500;
+    highGoalSetpoint = 2500;
+    distanceFromFender = 35;
+     
+
+
+
 
     // set PID coefficients
     shooterVelocityPID.setP(kP, 0);
@@ -132,8 +140,8 @@ public class Robot extends TimedRobot {
     shooter.setInverted(true);
     ballCollector.setInverted(true);
 
-   
-
+    rightClimber.setOpenLoopRampRate(0);
+    leftClimber.setOpenLoopRampRate(0);
     intake = new DoubleSolenoid(5, PneumaticsModuleType.CTREPCM , 1 , 0);    
     drivetrain = new DifferentialDrive(leftMotors, rightMotors);
   }
@@ -162,6 +170,7 @@ public class Robot extends TimedRobot {
 double voltage_scale_factor = 5/RobotController.getVoltage5V();
  currentDistanceCentimeters = rawValue * voltage_scale_factor * 0.125;
  currentDistanceInches = rawValue * voltage_scale_factor * 0.0492;
+ SmartDashboard.putNumber("Distance Inches", currentDistanceInches);
 
  
  
@@ -220,7 +229,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
 
       if(isLeftSwitchBumped == true)
       {
-        if(leftClimber.getEncoder().getPosition() < 15)
+        if(leftClimber.getEncoder().getPosition() < 0)
       {
         leftClimber.set(.25);
       }
@@ -232,7 +241,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
 
       if(isRightSwitchBumped == true){
 
-        if(rightClimber.getEncoder().getPosition() > -15)
+        if(rightClimber.getEncoder().getPosition() > 0)
         {
           rightClimber.set(-.25);
         }
@@ -253,7 +262,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       else if (proximity > 250)
       {
       drivetrain.curvatureDrive(0, 0, false);
-      shooterVelocityPID.setReference(1300.0, CANSparkMax.ControlType.kVelocity, 0);
+      shooterVelocityPID.setReference(lowGoalSetpoint, CANSparkMax.ControlType.kVelocity, 0);
       double error = 1300 - shooterSpeed;
 
       if (Math.abs(error) < 70) {
@@ -289,7 +298,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       else if (proximity > 250)
       {
       drivetrain.curvatureDrive(0, 0, false);
-      shooterVelocityPID.setReference(1300.0, CANSparkMax.ControlType.kVelocity, 0);
+      shooterVelocityPID.setReference(lowGoalSetpoint, CANSparkMax.ControlType.kVelocity, 0);
       double error = 1300 - shooterSpeed;
 
       if (Math.abs(error) < 70) {
@@ -337,10 +346,6 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
     int redColor = colorSensor.getRed();
     int blueColor = colorSensor.getBlue();
     SmartDashboard.putString("Ball", ball);
-  
-
-    //SmartDashboard.putBoolean("Ball Color", Ball);
-
 
     boolean quickTurn = false;
 
@@ -358,12 +363,41 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       speed = (Math.pow((forward - reverse), 7)) /2;
     }
 
-    //Inverts turning when reversing the robot
-    if (speed < 0)
+    if (driverController.getLeftBumper()) 
+    {
+      quickTurn = true;
+      turn = -.4;
+    } 
+    
+    if (driverController.getRightBumper())
+    {
+      quickTurn = true;
+      turn = .4;
+    }
+    
+     //Inverts turning when reversing the robot
+     if (speed < 0)
      {
       turn = -1 * turn;
     }
 
+    if (driverController.getAButton())
+    {
+      rightMotor1.setIdleMode(IdleMode.kBrake);
+      rightMotor2.setIdleMode(IdleMode.kBrake);
+      leftMotor1.setIdleMode(IdleMode.kBrake);
+      leftMotor2.setIdleMode(IdleMode.kBrake);
+    }
+    else
+    {
+      rightMotor1.setIdleMode(IdleMode.kCoast);
+      rightMotor2.setIdleMode(IdleMode.kCoast);
+      leftMotor1.setIdleMode(IdleMode.kCoast);
+      leftMotor2.setIdleMode(IdleMode.kCoast);
+    }
+    drivetrain.curvatureDrive(speed, turn, quickTurn);
+
+   
     // Lets make backwards speed bring the climber down, forward speed raise the climber
     if (operatorController.getPOV() == 0)
     {
@@ -386,14 +420,14 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
     }
     else if (operatorController.getPOV() == 180)
     {
-      if (rightClimber.getEncoder().getPosition() < -15){
+      if (rightClimber.getEncoder().getPosition() < 0){
       rightClimber.set(1);
       }
        else
       {
       rightClimber.set(0);
       }
-      if (leftClimber.getEncoder().getPosition() > 15){
+      if (leftClimber.getEncoder().getPosition() > 0){
       leftClimber.set(-1);
       }
       else
@@ -406,21 +440,6 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       rightClimber.set(0);
       leftClimber.set(0);
     }
-
-    if (driverController.getLeftBumper()) 
-    {
-      quickTurn = true;
-      turn = -.4;
-    } 
-    
-    if (driverController.getRightBumper())
-    {
-      quickTurn = true;
-      turn = .4;
-    }
-    
-
-    drivetrain.curvatureDrive(speed, turn, quickTurn);
 
 
      if (proximity > 250) {
@@ -436,23 +455,6 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       ball = "No Ball";
       }
     
-    /* Lets set blue to true, red to false
-     
-    if (proximity > 250) {
-      if (redColor > blueColor) 
-      {
-        Ball = false;
-      } 
-      else 
-      {
-        Ball = true;
-      }
-      } 
-    else 
-      {
-
-      }
-      */
     if (operatorController.getLeftBumper())
     {
       feeder.set(-.4);
@@ -512,23 +514,49 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       }
     }
 
-
-
     // Y Button on operatorController Controller
-    /*
-    if (operatorController.getRawButton(4)) {
-      ballCollector.set(intakeSpeed);
-
-      if (proximity < 250) {
-        feeder.set(.4);
-      } else {
-        feeder.set(0);
+    if (operatorController.getYButton())
+    {
+      //When pressed, move robot to 35 inches from fender
+      if (currentDistanceInches < distanceFromFender)
+      {
+        drivetrain.curvatureDrive(-.15, 0, false);
       }
-    } else {
-      ballCollector.set(0);
-      feeder.set(0);
+      else
+      {
+        drivetrain.curvatureDrive(0, 0, false);
+      
+      
+
+      //and spool up shooter,
+      //after it has been aligned and shooter is up to speed, run the feeder.
+      if (proximity < 250) {
+        shooterTimer++;
+        feeder.set(.4);
+        ballCollector.set(intakeSpeed);
+
+        if (shooterTimer > 50) {
+
+          shooter.set(0);
+
+        }
+      } 
+      else if (proximity > 250) 
+      {
+        shooterVelocityPID.setReference(highGoalSetpoint, CANSparkMax.ControlType.kVelocity, 0);
+        double error = 1300 - shooterSpeed;
+
+        if (Math.abs(error) < 70) {
+          feeder.set(1);
+          ballCollector.set(intakeSpeed);
+          shooterTimer = 0;
+        }
+      }
     }
-*/
+
+
+    }
+   
 
     if (operatorController.getBButton()) {
 
@@ -545,6 +573,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       } 
       else if (proximity > 250) 
       {
+        shooterVelocityPID.setReference(lowGoalSetpoint, CANSparkMax.ControlType.kVelocity, 0);
         double error = 1300 - shooterSpeed;
 
         if (Math.abs(error) < 70) {
@@ -554,15 +583,10 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
         }
       }
     } else {
-      if (!operatorController.getXButton())
-      {
+      if (!operatorController.getXButton() && !operatorController.getYButton())
+    {
       shooter.set(0);
       }
-
-      
-      //if (!operatorController.getRawButton(4)) {
-       // feeder.set(0);
-     // }
 
     }
 
