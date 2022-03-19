@@ -160,6 +160,8 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotPeriodic() {
+    SmartDashboard.putNumber("Right Climber", rightClimber.getEncoder().getPosition());
+    SmartDashboard.putNumber("Left Climber", leftClimber.getEncoder().getPosition());
     proximity = colorSensor.getProximity();
     double rawValue = ultrasonicSensorOne.getValue();
 
@@ -208,7 +210,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
   public void autonomousPeriodic() {
     if (rightClimberLimitSwitch.get() && isRightSwitchBumped == false)
     {
-      rightClimber.set(.25);
+      rightClimber.set(.15);
     }
     else if (isRightSwitchBumped == false)
     {
@@ -219,7 +221,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
 
     if (leftClimberLimitSwitch.get() && isLeftSwitchBumped == false)
     {
-      leftClimber.set(-.25);
+      leftClimber.set(-.15);
     }
     else if (isLeftSwitchBumped == false)
     {
@@ -230,9 +232,9 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
 
       if(isLeftSwitchBumped == true)
       {
-        if(leftClimber.getEncoder().getPosition() < 0)
+        if(leftClimber.getEncoder().getPosition() < 1)
       {
-        leftClimber.set(.25);
+        leftClimber.set(.15);
       }
       else
       {
@@ -242,9 +244,9 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
 
       if(isRightSwitchBumped == true){
 
-        if(rightClimber.getEncoder().getPosition() > 0)
+        if(rightClimber.getEncoder().getPosition() > -1)
         {
-          rightClimber.set(-.25);
+          rightClimber.set(-.15);
         }
         else
         {
@@ -438,7 +440,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
     // Lets make backwards speed bring the climber down, forward speed raise the climber
     if (operatorController.getPOV() == 0)
     {
-      if (rightClimber.getEncoder().getPosition() > -570)
+      if (rightClimber.getEncoder().getPosition() > -123)
       {
       rightClimber.set(-1);
       }
@@ -446,7 +448,7 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
       {
       rightClimber.set(0);
       }
-      if (leftClimber.getEncoder().getPosition() < 570){
+      if (leftClimber.getEncoder().getPosition() < 114){
       leftClimber.set(1);  
       }
         else
@@ -457,14 +459,14 @@ double voltage_scale_factor = 5/RobotController.getVoltage5V();
     }
     else if (operatorController.getPOV() == 180)
     {
-      if (rightClimber.getEncoder().getPosition() < 0){
+      if (rightClimber.getEncoder().getPosition() < -15){
       rightClimber.set(1);
       }
        else
       {
       rightClimber.set(0);
       }
-      if (leftClimber.getEncoder().getPosition() > 0){
+      if (leftClimber.getEncoder().getPosition() > 15){
       leftClimber.set(-1);
       }
       else
