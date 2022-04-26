@@ -75,7 +75,7 @@ public class Robot extends TimedRobot {
   int intakeTimer = 150;
   int reverseTimer = 0;
   String ball = "";
-  double intakeSpeed = .4;
+  double intakeSpeed = .52;
   boolean isRightSwitchBumped = false;
   boolean isLeftSwitchBumped = false;
 
@@ -96,7 +96,7 @@ public class Robot extends TimedRobot {
   double highGoalDistance;
 
   double[] distances = { 35.5, 39.9, 46.1, 49.9, 55, 60.5, 70, 80, 90, 100, 109, 125 };
-  double[] speeds = { 2400, 2480, 2560, 2660, 2770, 2880, 3100, 3250, 3380, 3505, 3620, 3750 };
+  double[] speeds = { 2400, 2480, 2560, 2660, 2783, 2880, 3100, 3250, 3380, 3505, 3620, 3750 };
 
   /**
    * This function is run when the robot is first started up and should be used
@@ -163,7 +163,7 @@ public class Robot extends TimedRobot {
       double numerator = speeds[distIndex] - speeds[distIndex - 1];
       double denominator = distances[distIndex] - distances[distIndex - 1];
       double m = numerator / denominator;
-      speed = m * (distance - distances[distIndex - 1]) + speeds[distIndex - 1];
+      speed = (m * (distance - distances[distIndex - 1]) + speeds[distIndex - 1]) + 70;
     }
 
     return speed;
@@ -182,8 +182,8 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotPeriodic() {
-    // SmartDashboard.putNumber("Right Climber",
-    // rightClimber.getEncoder().getPosition());
+     //SmartDashboard.putNumber("Right Climber",
+     //rightClimber.getEncoder().getPosition());
     // SmartDashboard.putNumber("Left Climber",
     // leftClimber.getEncoder().getPosition());
     proximity = colorSensor.getProximity();
@@ -410,23 +410,32 @@ public class Robot extends TimedRobot {
       rightMotor2.setIdleMode(IdleMode.kBrake);
       leftMotor1.setIdleMode(IdleMode.kBrake);
       leftMotor2.setIdleMode(IdleMode.kBrake);
+      rightMotor1.setClosedLoopRampRate(0);
+      rightMotor2.setClosedLoopRampRate(0);
+      leftMotor1.setClosedLoopRampRate(0);
+      leftMotor2.setClosedLoopRampRate(0);
     } else {
       rightMotor1.setIdleMode(IdleMode.kCoast);
       rightMotor2.setIdleMode(IdleMode.kCoast);
       leftMotor1.setIdleMode(IdleMode.kCoast);
       leftMotor2.setIdleMode(IdleMode.kCoast);
+      rightMotor1.setClosedLoopRampRate(0.25);
+      rightMotor2.setClosedLoopRampRate(0.25);
+      leftMotor1.setClosedLoopRampRate(0.25);
+      leftMotor2.setClosedLoopRampRate(0.25);
+
     }
     drivetrain.curvatureDrive(speed, turn, quickTurn);
 
     // Lets make backwards speed bring the climber down, forward speed raise the
     // climber
     if (operatorController.getPOV() == 0) {
-      if (rightClimber.getEncoder().getPosition() > -123) {
+      if (rightClimber.getEncoder().getPosition() > -145) {
         rightClimber.set(-1);
       } else {
         rightClimber.set(0);
       }
-      if (leftClimber.getEncoder().getPosition() < 114) {
+      if (leftClimber.getEncoder().getPosition() < 134) {
         leftClimber.set(1);
       } else {
         leftClimber.set(0);
@@ -457,13 +466,15 @@ public class Robot extends TimedRobot {
     } else {
       ball = "No Ball";
     }
-
+/*
     if (operatorController.getLeftBumper()) {
+      ballCollector.set(-1);
       feeder.set(-.4);
     } else {
+
       feeder.set(0);
     }
-
+*/
     if (operatorController.getXButton()) {
       shooter.set(1);
     } else {
@@ -550,7 +561,7 @@ public class Robot extends TimedRobot {
 
     if (operatorController.getBButton()) {
 
-      if (proximity < 250) {
+      if (proximity < 250) {      
         shooterTimer++;
         feeder.set(.4);
         ballCollector.set(intakeSpeed);
@@ -564,7 +575,7 @@ public class Robot extends TimedRobot {
         shooterVelocityPID.setReference(lowGoalSetpoint, CANSparkMax.ControlType.kVelocity, 0);
         double error = lowGoalSetpoint - shooterSpeed;
 
-        if (Math.abs(error) < 70 && Math.abs(lastShooterSpeed5 - shooterSpeed) < 1) {
+        if (Math.abs(error) < 70 && Math.abs(lastShooterSpeed1 - shooterSpeed) < 1) {
 
           feeder.set(1);
           ballCollector.set(intakeSpeed);
@@ -576,6 +587,14 @@ public class Robot extends TimedRobot {
         shooter.set(0);
       }
 
+    }
+    
+    if (operatorController.getLeftBumper()) {
+      ballCollector.set(-1);
+      feeder.set(-.4);
+    } else {
+
+     // feeder.set(0);
     }
     lastShooterSpeed5 = lastShooterSpeed4;
     lastShooterSpeed4 = lastShooterSpeed3;
